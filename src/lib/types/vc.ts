@@ -1,4 +1,3 @@
-// src/lib/types/vc.ts
 import { z } from "zod";
 
 // Proof Schema
@@ -7,15 +6,16 @@ export const ProofSchema = z.object({
   created: z.string(),
   verificationMethod: z.string(),
   proofPurpose: z.string(),
-  proofValue: z.string(),
-  jws: z.string().optional(),
+  proofValue: z.string().optional(),
+  jws: z.string(),
   challenge: z.string().optional(),
   domain: z.string().optional(),
+  cryptosuite: z.string(),
 });
 
 export type Proof = z.infer<typeof ProofSchema>;
 
-// Credential Status Schema
+// 以下は既存のコードをそのまま維持
 export const CredentialStatusSchema = z.object({
   id: z.string(),
   type: z.string(),
@@ -25,13 +25,34 @@ export const CredentialStatusSchema = z.object({
 
 export type CredentialStatus = z.infer<typeof CredentialStatusSchema>;
 
-// Credential Schema
 export const CredentialSchemaSchema = z.object({
   id: z.string(),
   type: z.string(),
 });
 
 export type CredentialSchema = z.infer<typeof CredentialSchemaSchema>;
+
+export const EvidenceSchema = z
+  .object({
+    id: z.string(),
+    type: z.array(z.string()),
+    verifier: z.string(),
+    evidenceDocument: z.string(),
+    subjectPresence: z.string(),
+    documentPresence: z.string(),
+    verificationMethod: z.string(),
+  })
+  .and(z.record(z.string(), z.any()));
+
+export const RefreshServiceSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+});
+
+export const TermsOfUseSchema = z.object({
+  type: z.string(),
+  id: z.string(),
+});
 
 // Verifiable Credential Schema
 export const VerifiableCredentialSchema = z.object({
@@ -52,30 +73,9 @@ export const VerifiableCredentialSchema = z.object({
     .and(z.record(z.string(), z.any())),
   credentialStatus: CredentialStatusSchema.optional(),
   credentialSchema: CredentialSchemaSchema.optional(),
-  refreshService: z
-    .object({
-      id: z.string(),
-      type: z.string(),
-    })
-    .optional(),
-  termsOfUse: z
-    .array(
-      z.object({
-        id: z.string(),
-        type: z.string(),
-      }),
-    )
-    .optional(),
-  evidence: z
-    .array(
-      z
-        .object({
-          id: z.string(),
-          type: z.array(z.string()),
-        })
-        .and(z.record(z.string(), z.any())),
-    )
-    .optional(),
+  refreshService: RefreshServiceSchema.optional(),
+  termsOfUse: z.array(TermsOfUseSchema).optional(),
+  evidence: z.array(EvidenceSchema).optional(),
   proof: ProofSchema.optional(),
 });
 

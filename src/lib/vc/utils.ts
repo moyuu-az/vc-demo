@@ -6,7 +6,8 @@ import {
   AuthorizationResponse,
   VerifiableCredentialSchema,
 } from "../types/vc";
-import { generateKeyPair, signCredential } from "./crypto-utils";
+import { generateKeyPair } from "./crypto-utils";
+import { createLinkedDataProof, verifyLinkedDataProof } from "./security-utils";
 import { createDIDDocument, validateDID } from "./did-utils";
 import { revocationService } from "./revocation-utils";
 
@@ -38,37 +39,35 @@ export async function generateAuthorizationRequest(
 
 export async function createVerifiableCredential(
   subjectId: string,
-  claims: Record<string, any>,
+  claims: Record<string, never>,
 ): Promise<VerifiableCredential> {
   if (!validateDID(subjectId)) {
     throw new Error("Invalid DID format for subject");
   }
 
-  const keyPair = await generateKeyPair();
   const credentialId = `urn:uuid:${uuidv4()}`;
-
   const revocationStatus =
     revocationService.createRevocationStatus(credentialId);
-  const revocationListCredential =
-    revocationService.createRevocationListCredential();
+  const issuerDid = "did:web:demo-issuer.example.com";
 
   const credential: VerifiableCredential = {
     "@context": [
       "https://www.w3.org/2018/credentials/v1",
       "https://www.w3.org/2018/credentials/examples/v1",
+      "https://w3id.org/security/suites/ed25519-2020/v1",
       "https://w3id.org/vc-revocation-list-2020/v1",
     ],
     id: credentialId,
     type: ["VerifiableCredential", "DemoCredential"],
     issuer: {
-      id: "did:web:demo-issuer.example.com",
+      id: issuerDid,
       name: "Demo Issuer Organization",
       image: "https://demo-issuer.example.com/logo.png",
     },
     issuanceDate: new Date().toISOString(),
     expirationDate: new Date(
       Date.now() + 365 * 24 * 60 * 60 * 1000,
-    ).toISOString(), // 1年後
+    ).toISOString(),
     credentialSubject: {
       id: subjectId,
       ...claims,
@@ -78,6 +77,27 @@ export async function createVerifiableCredential(
       id: "https://demo-issuer.example.com/schemas/demo-credential.json",
       type: "JsonSchemaValidator2018",
     },
+    evidence: [
+      {
+        id: `${credentialId}#evidence-1`,
+        type: ["DocumentVerification"],
+        verifier: issuerDid,
+        evidenceDocument: "Verified Identity Document",
+        subjectPresence: "Physical",
+        documentPresence: "Physical",
+        verificationMethod: "ProofOfIdentity",
+      },
+    ],
+    refreshService: {
+      id: `https://demo-issuer.example.com/refresh/${credentialId}`,
+      type: "ManualRefreshService2018",
+    },
+    termsOfUse: [
+      {
+        type: "IssuerPolicy",
+        id: "https://demo-issuer.example.com/policies/credential-terms",
+      },
+    ],
   };
 
   // Validate the credential against the schema
@@ -86,18 +106,51 @@ export async function createVerifiableCredential(
     throw new Error(`Invalid credential format: ${validationResult.error}`);
   }
 
-  // Sign the credential
-  const proofValue = await signCredential(credential, keyPair.privateKey);
+  // Create Linked Data Proof
+  const proof = await createLinkedDataProof(
+    credential,
+    issuerDid,
+    "assertionMethod",
+    {
+      challenge: uuidv4(),
+      domain: "demo-issuer.example.com",
+    },
+  );
 
-  credential.proof = {
-    type: "EcdsaSecp256k1Signature2019",
-    created: new Date().toISOString(),
-    verificationMethod: `${credential.issuer.id}#key-1`,
-    proofPurpose: "assertionMethod",
-    proofValue,
-  };
+  credential.proof = proof;
 
   return credential;
+}
+
+export async function verifyCredential(
+  credential: VerifiableCredential,
+): Promise<boolean> {
+  // 1. Validate schema
+  const validationResult = VerifiableCredentialSchema.safeParse(credential);
+  if (!validationResult.success) {
+    return false;
+  }
+
+  // 2. Check expiration
+  if (
+    credential.expirationDate &&
+    new Date(credential.expirationDate) < new Date()
+  ) {
+    return false;
+  }
+
+  // 3. Check revocation status
+  const isNotRevoked = await verifyCredentialStatus(credential.id);
+  if (!isNotRevoked) {
+    return false;
+  }
+
+  // 4. Verify proof
+  if (!credential.proof) {
+    return false;
+  }
+
+  return await verifyLinkedDataProof(credential, credential.proof);
 }
 
 export async function generateAuthorizationResponse(
@@ -109,7 +162,6 @@ export async function generateAuthorizationResponse(
     throw new Error("Invalid DID format for holder");
   }
 
-  const keyPair = await generateKeyPair();
   const response: AuthorizationResponse = {
     requestId,
     holder,
@@ -117,16 +169,18 @@ export async function generateAuthorizationResponse(
     timestamp: new Date().toISOString(),
   };
 
-  // Sign the response
-  const proofValue = await signCredential(response, keyPair.privateKey);
+  // 新しいLinkedDataProofを使用して署名を生成
+  const proof = await createLinkedDataProof(
+    response,
+    holder,
+    "authentication",
+    {
+      challenge: uuidv4(),
+      domain: "demo-issuer.example.com",
+    },
+  );
 
-  response.proof = {
-    type: "EcdsaSecp256k1Signature2019",
-    created: new Date().toISOString(),
-    verificationMethod: `${holder}#key-1`,
-    proofPurpose: "authentication",
-    proofValue,
-  };
+  response.proof = proof;
 
   return response;
 }
