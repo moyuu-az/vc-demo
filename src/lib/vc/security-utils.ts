@@ -1,4 +1,4 @@
-import { SignJWT, importJWK, JWK, CompactSign } from "jose";
+import { JWK } from "jose";
 import { generateKeyPair } from "./crypto-utils";
 
 export interface SecurityProof {

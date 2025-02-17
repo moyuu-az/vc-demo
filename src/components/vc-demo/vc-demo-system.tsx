@@ -19,6 +19,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import VCProcessVisualization from "./vc-process-visualization";
 import {
   VerifiableCredential,
   AuthorizationRequest,
@@ -28,12 +29,9 @@ import {
   generateAuthorizationRequest,
   createVerifiableCredential,
   generateAuthorizationResponse,
-  revokeCredential,
-  verifyCredentialStatus,
 } from "@/lib/vc/utils";
 
 const VCDemoSystem = () => {
-  // State management
   const [showWallet, setShowWallet] = useState(false);
   const [vcRequested, setVcRequested] = useState(false);
   const [currentRequest, setCurrentRequest] =
@@ -44,10 +42,11 @@ const VCDemoSystem = () => {
   );
   const [currentResponse, setCurrentResponse] =
     useState<AuthorizationResponse | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
 
-  // VC発行リクエスト
   const handleRequestVC = async () => {
     try {
+      setCurrentStep(1); // DIDsは生成済みとして、認証リクエストステップへ
       const request = await generateAuthorizationRequest(
         ["DemoCredential"],
         "This is a demo credential issuance request for testing purposes.",
@@ -59,22 +58,18 @@ const VCDemoSystem = () => {
     }
   };
 
-  // handleAcceptVC関数を修正
   const handleAcceptVC = async () => {
     if (!currentRequest) return;
 
     try {
-      // 承認レスポンスの生成
+      setCurrentStep(2); // 承認と署名ステップへ
       const response = await generateAuthorizationResponse(
         currentRequest.requestId,
         holderDid,
         true,
       );
-
-      // レスポンスを状態に保存
       setCurrentResponse(response);
 
-      // VCの生成
       const vc = await createVerifiableCredential(holderDid, {
         type: "DemoCredential",
         name: "Demo Credential",
@@ -83,6 +78,7 @@ const VCDemoSystem = () => {
         status: "valid",
       });
 
+      setCurrentStep(3); // 発行完了ステップへ
       setIssuedVC(vc);
       setShowWallet(false);
     } catch (error) {
@@ -90,7 +86,6 @@ const VCDemoSystem = () => {
     }
   };
 
-  // Prettify JSON for display
   const prettifyJson = (obj: any) => {
     return JSON.stringify(obj, null, 2);
   };
@@ -99,24 +94,30 @@ const VCDemoSystem = () => {
     <div className="container mx-auto p-4">
       <Tabs defaultValue="issuer" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="issuer">Issuer</TabsTrigger>
-          <TabsTrigger value="holder">Holder</TabsTrigger>
+          <TabsTrigger value="issuer">発行者 (Issuer)</TabsTrigger>
+          <TabsTrigger value="holder">保持者 (Holder)</TabsTrigger>
         </TabsList>
 
         <TabsContent value="issuer">
           <Card>
             <CardHeader>
-              <CardTitle>VC Issuer Demo</CardTitle>
-              <CardDescription>Verifiable Credentialの発行デモ</CardDescription>
+              <CardTitle>Verifiable Credential発行デモ</CardTitle>
+              <CardDescription>
+                VCの発行プロセスを体験できます。各ステップでどのような処理が行われているかを確認できます。
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={handleRequestVC} className="w-full mb-4">
-                Issue VC
+              <VCProcessVisualization currentStep={currentStep} />
+
+              <Button onClick={handleRequestVC} className="w-full mt-6 mb-4">
+                VCを発行
               </Button>
 
               {vcRequested && !issuedVC && currentRequest && (
-                <div className="flex flex-col items-center">
-                  <p className="mb-4">QRコードをスキャンしてください</p>
+                <div className="flex flex-col items-center mt-6">
+                  <p className="mb-4">
+                    QRコードをスキャンするか、Webウォレットで開いてください
+                  </p>
                   <QRCodeSVG value={prettifyJson(currentRequest)} size={200} />
                   <Button onClick={() => setShowWallet(true)} className="mt-4">
                     Webウォレットで開く

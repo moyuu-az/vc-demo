@@ -1,5 +1,5 @@
 // src/lib/vc/did-utils.ts
-import { KeyPair, exportPublicKey } from "./crypto-utils";
+import { exportPublicKey, KeyPair } from "./crypto-utils";
 
 export interface DIDDocument {
   "@context": string[];
