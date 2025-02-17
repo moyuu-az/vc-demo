@@ -1,4 +1,3 @@
-// src/components/vc-demo/vc-demo-system.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -29,6 +28,8 @@ import {
   generateAuthorizationRequest,
   createVerifiableCredential,
   generateAuthorizationResponse,
+  revokeCredential,
+  verifyCredentialStatus,
 } from "@/lib/vc/utils";
 
 const VCDemoSystem = () => {
@@ -45,40 +46,53 @@ const VCDemoSystem = () => {
     useState<AuthorizationResponse | null>(null);
 
   // VC発行リクエスト
-  const handleRequestVC = () => {
-    const request = generateAuthorizationRequest(
-      ["DemoCredential"],
-      "Demo purpose for VC issuance",
-    );
-    setCurrentRequest(request);
-    setVcRequested(true);
+  const handleRequestVC = async () => {
+    try {
+      const request = await generateAuthorizationRequest(
+        ["DemoCredential"],
+        "This is a demo credential issuance request for testing purposes.",
+      );
+      setCurrentRequest(request);
+      setVcRequested(true);
+    } catch (error) {
+      console.error("Error generating authorization request:", error);
+    }
   };
 
   // handleAcceptVC関数を修正
-  const handleAcceptVC = () => {
+  const handleAcceptVC = async () => {
     if (!currentRequest) return;
 
-    // 承認レスポンスの生成
-    const response = generateAuthorizationResponse(
-      currentRequest.requestId,
-      holderDid,
-      true,
-    );
+    try {
+      // 承認レスポンスの生成
+      const response = await generateAuthorizationResponse(
+        currentRequest.requestId,
+        holderDid,
+        true,
+      );
 
-    // レスポンスを状態に保存
-    setCurrentResponse(response);
+      // レスポンスを状態に保存
+      setCurrentResponse(response);
 
-    // VCの生成
-    const vc = createVerifiableCredential(holderDid, {
-      type: "DemoCredential",
-      name: "Demo Credential",
-      description: "This is a demo credential",
-      issuedAt: new Date().toISOString(),
-      status: "valid",
-    });
+      // VCの生成
+      const vc = await createVerifiableCredential(holderDid, {
+        type: "DemoCredential",
+        name: "Demo Credential",
+        description: "This is a demo credential for testing purposes",
+        issuedAt: new Date().toISOString(),
+        status: "valid",
+      });
 
-    setIssuedVC(vc);
-    setShowWallet(false);
+      setIssuedVC(vc);
+      setShowWallet(false);
+    } catch (error) {
+      console.error("Error accepting VC:", error);
+    }
+  };
+
+  // Prettify JSON for display
+  const prettifyJson = (obj: any) => {
+    return JSON.stringify(obj, null, 2);
   };
 
   return (
@@ -103,10 +117,7 @@ const VCDemoSystem = () => {
               {vcRequested && !issuedVC && currentRequest && (
                 <div className="flex flex-col items-center">
                   <p className="mb-4">QRコードをスキャンしてください</p>
-                  <QRCodeSVG
-                    value={JSON.stringify(currentRequest)}
-                    size={200}
-                  />
+                  <QRCodeSVG value={prettifyJson(currentRequest)} size={200} />
                   <Button onClick={() => setShowWallet(true)} className="mt-4">
                     Webウォレットで開く
                   </Button>
@@ -119,7 +130,7 @@ const VCDemoSystem = () => {
                     認証レスポンス:
                   </h3>
                   <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
-                    {JSON.stringify(currentResponse, null, 2)}
+                    {prettifyJson(currentResponse)}
                   </pre>
                 </div>
               )}
@@ -128,7 +139,7 @@ const VCDemoSystem = () => {
                 <div className="mt-4">
                   <h3 className="text-lg font-semibold mb-2">発行されたVC:</h3>
                   <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
-                    {JSON.stringify(issuedVC, null, 2)}
+                    {prettifyJson(issuedVC)}
                   </pre>
                 </div>
               )}
@@ -167,11 +178,38 @@ const VCDemoSystem = () => {
             <h3 className="text-lg font-semibold mb-4">認証リクエスト</h3>
             <p className="mb-4">以下の証明書の発行をリクエストしています：</p>
             {currentRequest && (
-              <pre className="bg-gray-100 p-4 rounded mb-4 max-h-96 overflow-auto">
-                {JSON.stringify(currentRequest, null, 2)}
-              </pre>
+              <div className="space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p>
+                    <strong>クレデンシャルタイプ:</strong>{" "}
+                    {currentRequest.credentialType.join(", ")}
+                  </p>
+                  <p>
+                    <strong>目的:</strong> {currentRequest.purpose}
+                  </p>
+                  <p>
+                    <strong>発行者:</strong> {currentRequest.issuer.name} (
+                    {currentRequest.issuer.id})
+                  </p>
+                  <p>
+                    <strong>リクエストID:</strong> {currentRequest.requestId}
+                  </p>
+                  <p>
+                    <strong>タイムスタンプ:</strong>{" "}
+                    {new Date(currentRequest.timestamp).toLocaleString()}
+                  </p>
+                </div>
+                <details>
+                  <summary className="cursor-pointer text-sm text-gray-600">
+                    詳細な技術情報を表示
+                  </summary>
+                  <pre className="mt-2 bg-gray-100 p-4 rounded overflow-auto max-h-96 text-sm">
+                    {prettifyJson(currentRequest)}
+                  </pre>
+                </details>
+              </div>
             )}
-            <div className="flex justify-end gap-4">
+            <div className="flex justify-end gap-4 mt-6">
               <Button variant="outline" onClick={() => setShowWallet(false)}>
                 拒否
               </Button>
