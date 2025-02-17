@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Card,
@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import VCProcessVisualization from "./vc-process-visualization";
+import VCWalletView from "./vc-wallet-view";
 import {
   VerifiableCredential,
   AuthorizationRequest,
@@ -30,6 +31,7 @@ import {
   createVerifiableCredential,
   generateAuthorizationResponse,
 } from "@/lib/vc/utils";
+import { saveCredential, getStoredCredentials } from "@/lib/vc/storage-utils";
 
 const VCDemoSystem = () => {
   const [showWallet, setShowWallet] = useState(false);
@@ -43,6 +45,15 @@ const VCDemoSystem = () => {
   const [currentResponse, setCurrentResponse] =
     useState<AuthorizationResponse | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
+  const [storedCredentials, setStoredCredentials] = useState<
+    VerifiableCredential[]
+  >([]);
+
+  // 保存されたVCを読み込む
+  useEffect(() => {
+    const credentials = getStoredCredentials();
+    setStoredCredentials(credentials);
+  }, []);
 
   const handleRequestVC = async () => {
     try {
@@ -78,6 +89,11 @@ const VCDemoSystem = () => {
         status: "valid",
       });
 
+      // VCを保存
+      saveCredential(vc);
+      const updatedCredentials = getStoredCredentials();
+      setStoredCredentials(updatedCredentials);
+
       setCurrentStep(3); // 発行完了ステップへ
       setIssuedVC(vc);
       setShowWallet(false);
@@ -95,7 +111,7 @@ const VCDemoSystem = () => {
       <Tabs defaultValue="issuer" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="issuer">発行者 (Issuer)</TabsTrigger>
-          <TabsTrigger value="holder">保持者 (Holder)</TabsTrigger>
+          <TabsTrigger value="holder">Wallet</TabsTrigger>
         </TabsList>
 
         <TabsContent value="issuer">
@@ -151,12 +167,14 @@ const VCDemoSystem = () => {
         <TabsContent value="holder">
           <Card>
             <CardHeader>
-              <CardTitle>VC Holder Demo</CardTitle>
-              <CardDescription>VCの保持者設定</CardDescription>
+              <CardTitle>保存されたVC一覧</CardTitle>
+              <CardDescription>
+                発行されたVerifiable Credentialを確認できます
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid w-full gap-4">
-                <div className="flex flex-col space-y-1.5">
+                <div className="flex flex-col space-y-1.5 mb-4">
                   <Label htmlFor="holderDid">Holder DID</Label>
                   <Input
                     id="holderDid"
@@ -164,6 +182,7 @@ const VCDemoSystem = () => {
                     onChange={(e) => setHolderDid(e.target.value)}
                   />
                 </div>
+                <VCWalletView credentials={storedCredentials} />
               </div>
             </CardContent>
           </Card>
