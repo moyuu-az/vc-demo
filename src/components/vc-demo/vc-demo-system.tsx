@@ -192,7 +192,7 @@ const VCDemoSystem = () => {
               {issuedVC && (
                 <div className="mt-4">
                   <h3 className="text-lg font-semibold mb-2">発行されたVC:</h3>
-                  <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
+                  <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-300">
                     {prettifyJson(issuedVC)}
                   </pre>
                 </div>
@@ -259,14 +259,11 @@ const VCDemoSystem = () => {
                     {new Date(currentRequest.timestamp).toLocaleString()}
                   </p>
                 </div>
-                <details>
-                  <summary className="cursor-pointer text-sm text-gray-600">
-                    詳細な技術情報を表示
-                  </summary>
-                  <pre className="mt-2 bg-gray-100 p-4 rounded overflow-auto max-h-96 text-sm">
+                <div className="relative w-full">
+                  <pre className="bg-gray-100 p-4 rounded text-sm w-full whitespace-pre-wrap break-all">
                     {prettifyJson(currentRequest)}
                   </pre>
-                </details>
+                </div>
               </div>
             )}
             <div className="flex justify-end gap-4 mt-6">

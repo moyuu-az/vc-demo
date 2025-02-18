@@ -39,12 +39,19 @@ export async function generateAuthorizationRequest(
 
 export async function createVerifiableCredential(
   subjectId: string,
-  claims: Record<string, never>,
+  claims: Record<string, any>,
 ): Promise<VerifiableCredential> {
   if (!validateDID(subjectId)) {
     throw new Error("Invalid DID format for subject");
   }
 
+  // 鍵ペアを生成
+  const keyPair = await generateKeyPair();
+
+  // 生成した鍵ペアをログに出力
+  await exportKeys(keyPair.publicKey, keyPair.privateKey);
+
+  // 以下は既存のコード
   const credentialId = `urn:uuid:${uuidv4()}`;
   const revocationStatus =
     revocationService.createRevocationStatus(credentialId);
@@ -193,4 +200,38 @@ export async function verifyCredentialStatus(
   credentialId: string,
 ): Promise<boolean> {
   return !revocationService.isRevoked(credentialId);
+}
+
+async function exportKeys(publicKey: CryptoKey, privateKey: CryptoKey) {
+  try {
+    // JWK形式で公開鍵をエクスポート
+    const publicJWK = await window.crypto.subtle.exportKey("jwk", publicKey);
+    console.log("Public Key (JWK format):", JSON.stringify(publicJWK, null, 2));
+
+    // SPKI形式で公開鍵をエクスポート
+    const publicSPKI = await window.crypto.subtle.exportKey("spki", publicKey);
+    const publicSPKIBase64 = btoa(
+      String.fromCharCode(...new Uint8Array(publicSPKI)),
+    );
+    console.log("Public Key (SPKI format, base64):", publicSPKIBase64);
+
+    // JWK形式で秘密鍵をエクスポート
+    const privateJWK = await window.crypto.subtle.exportKey("jwk", privateKey);
+    console.log(
+      "Private Key (JWK format):",
+      JSON.stringify(privateJWK, null, 2),
+    );
+
+    // PKCS#8形式で秘密鍵をエクスポート
+    const privatePKCS8 = await window.crypto.subtle.exportKey(
+      "pkcs8",
+      privateKey,
+    );
+    const privatePKCS8Base64 = btoa(
+      String.fromCharCode(...new Uint8Array(privatePKCS8)),
+    );
+    console.log("Private Key (PKCS#8 format, base64):", privatePKCS8Base64);
+  } catch (error) {
+    console.error("Error exporting keys:", error);
+  }
 }
