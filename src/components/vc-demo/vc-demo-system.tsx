@@ -31,27 +31,44 @@ import {
   createVerifiableCredential,
   generateAuthorizationResponse,
 } from "@/lib/vc/utils";
-import { saveCredential, getStoredCredentials, deleteCredential } from "@/lib/vc/storage-utils";
+import {
+  saveCredential,
+  getStoredCredentials,
+  deleteCredential,
+} from "@/lib/vc/storage-utils";
 
 const VCDemoSystem = () => {
   const [showWallet, setShowWallet] = useState(false);
   const [vcRequested, setVcRequested] = useState(false);
-  const [currentRequest, setCurrentRequest] = useState<AuthorizationRequest | null>(null);
+  const [currentRequest, setCurrentRequest] =
+    useState<AuthorizationRequest | null>(null);
   const [issuedVC, setIssuedVC] = useState<VerifiableCredential | null>(null);
-  const [holderDid, setHolderDid] = useState<string>("did:web:demo-holder.example.com");
-  const [currentResponse, setCurrentResponse] = useState<AuthorizationResponse | null>(null);
+  const [holderDid, setHolderDid] = useState<string>(
+    "did:web:demo-holder.example.com",
+  );
+  const [currentResponse, setCurrentResponse] =
+    useState<AuthorizationResponse | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const [storedCredentials, setStoredCredentials] = useState<VerifiableCredential[]>([]);
+  const [storedCredentials, setStoredCredentials] = useState<
+    VerifiableCredential[]
+  >([]);
   const [activeTab, setActiveTab] = useState("issuer");
+  const [isLoading, setIsLoading] = useState(false);
 
-  // 保存されたVCを読み込む
+  // タブ切り替え時にVCをリロード
   useEffect(() => {
-    const loadCredentials = () => {
-      const credentials = getStoredCredentials();
-      setStoredCredentials(credentials);
+    const loadCredentials = async () => {
+      if (activeTab === "holder") {
+        try {
+          const credentials = await getStoredCredentials();
+          setStoredCredentials(credentials || []);
+        } catch (error) {
+          console.error("Error loading credentials:", error);
+        }
+      }
     };
     loadCredentials();
-  }, []);
+  }, [activeTab]);
 
   const handleRequestVC = async () => {
     try {
@@ -69,6 +86,7 @@ const VCDemoSystem = () => {
 
   const handleAcceptVC = async () => {
     if (!currentRequest) return;
+    setIsLoading(true);
 
     try {
       setCurrentStep(2);
@@ -87,28 +105,34 @@ const VCDemoSystem = () => {
         status: "valid",
       });
 
-      // VCを保存
-      saveCredential(vc);
-      const updatedCredentials = getStoredCredentials();
+      // VCを保存し、保存完了を待つ
+      await saveCredential(vc);
+
+      // 最新のクレデンシャルリストを取得
+      const updatedCredentials = await getStoredCredentials();
       setStoredCredentials(updatedCredentials);
 
       setCurrentStep(3);
       setIssuedVC(vc);
       setShowWallet(false);
-
-      // 発行完了後にWalletタブに切り替え
-      setTimeout(() => {
-        setActiveTab("holder");
-      }, 1000);
     } catch (error) {
       console.error("Error accepting VC:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleDeleteCredential = (credentialId: string) => {
-    deleteCredential(credentialId);
-    const updatedCredentials = getStoredCredentials();
-    setStoredCredentials(updatedCredentials);
+  const handleDeleteCredential = async (credentialId: string) => {
+    try {
+      setIsLoading(true);
+      await deleteCredential(credentialId);
+      const updatedCredentials = await getStoredCredentials();
+      setStoredCredentials(updatedCredentials);
+    } catch (error) {
+      console.error("Error deleting credential:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const prettifyJson = (obj: any) => {
@@ -156,7 +180,9 @@ const VCDemoSystem = () => {
 
               {currentResponse && (
                 <div className="mt-4">
-                  <h3 className="text-lg font-semibold mb-2">認証レスポンス:</h3>
+                  <h3 className="text-lg font-semibold mb-2">
+                    認証レスポンス:
+                  </h3>
                   <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
                     {prettifyJson(currentResponse)}
                   </pre>

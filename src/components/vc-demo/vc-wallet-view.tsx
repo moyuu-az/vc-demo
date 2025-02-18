@@ -1,3 +1,4 @@
+// src/components/vc-demo/vc-wallet-view.tsx
 import React from "react";
 import {
   Card,
@@ -25,7 +26,7 @@ interface VCWalletViewProps {
 
 const VCCard = ({
   credential,
-  onDelete
+  onDelete,
 }: {
   credential: VerifiableCredential;
   onDelete: () => void;
@@ -90,7 +91,10 @@ const VCCard = ({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
               キャンセル
             </Button>
             <Button
@@ -109,8 +113,14 @@ const VCCard = ({
   );
 };
 
-const VCWalletView = ({ credentials, onDeleteCredential }: VCWalletViewProps) => {
-  if (credentials.length === 0) {
+const VCWalletView = ({
+  credentials,
+  onDeleteCredential,
+}: VCWalletViewProps) => {
+  // 型チェックと配列の確認を追加
+  const validCredentials = Array.isArray(credentials) ? credentials : [];
+
+  if (validCredentials.length === 0) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -124,7 +134,7 @@ const VCWalletView = ({ credentials, onDeleteCredential }: VCWalletViewProps) =>
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {credentials.map((credential, index) => (
+      {validCredentials.map((credential, index) => (
         <VCCard
           key={credential.id || index}
           credential={credential}

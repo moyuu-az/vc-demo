@@ -1,45 +1,82 @@
 // src/lib/vc/storage-utils.ts
 import { VerifiableCredential } from "../types/vc";
 
-const VC_STORAGE_KEY = "stored_credentials";
-
-export const saveCredential = (credential: VerifiableCredential): void => {
+export const saveCredential = async (
+  credential: VerifiableCredential,
+): Promise<void> => {
   try {
-    // 既存のクレデンシャルを取得
-    const existingCredentials = getStoredCredentials();
+    const response = await fetch("/api/credentials", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(credential),
+    });
 
-    // 新しいクレデンシャルを追加
-    const updatedCredentials = [...existingCredentials, credential];
+    if (!response.ok) {
+      throw new Error("Failed to save credential");
+    }
 
-    // localStorageに保存
-    localStorage.setItem(VC_STORAGE_KEY, JSON.stringify(updatedCredentials));
+    // ローカルストレージにも保存（オプション - オフライン対応用）
+    const existingCredentials = await getStoredCredentials();
+    localStorage.setItem(
+      "stored_credentials",
+      JSON.stringify([...existingCredentials, credential]),
+    );
   } catch (error) {
     console.error("Error saving credential:", error);
+    throw error;
   }
 };
 
-export const getStoredCredentials = (): VerifiableCredential[] => {
+export const getStoredCredentials = async (): Promise<
+  VerifiableCredential[]
+> => {
   try {
-    const storedData = localStorage.getItem(VC_STORAGE_KEY);
-    if (!storedData) return [];
+    const response = await fetch("/api/credentials");
+    if (!response.ok) {
+      throw new Error("Failed to fetch credentials");
+    }
+    const data = await response.json();
+    const credentials = Array.isArray(data) ? data : [];
 
-    return JSON.parse(storedData);
+    // ローカルストレージも更新（オプション - オフライン対応用）
+    localStorage.setItem("stored_credentials", JSON.stringify(credentials));
+
+    return credentials;
   } catch (error) {
     console.error("Error retrieving credentials:", error);
-    return [];
+    // APIが失敗した場合はローカルストレージから取得を試みる
+    const storedData = localStorage.getItem("stored_credentials");
+    return storedData ? JSON.parse(storedData) : [];
   }
 };
 
-export const deleteCredential = (credentialId: string): void => {
+export const deleteCredential = async (credentialId: string): Promise<void> => {
   try {
-    const credentials = getStoredCredentials();
-    const updatedCredentials = credentials.filter(cred => cred.id !== credentialId);
-    localStorage.setItem(VC_STORAGE_KEY, JSON.stringify(updatedCredentials));
+    const response = await fetch("/api/credentials", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id: credentialId }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete credential");
+    }
+
+    // ローカルストレージも更新（オプション - オフライン対応用）
+    const credentials = await getStoredCredentials();
+    const updatedCredentials = credentials.filter(
+      (cred) => cred.id !== credentialId,
+    );
+    localStorage.setItem(
+      "stored_credentials",
+      JSON.stringify(updatedCredentials),
+    );
   } catch (error) {
     console.error("Error deleting credential:", error);
+    throw error;
   }
-};
-
-export const clearStoredCredentials = (): void => {
-  localStorage.removeItem(VC_STORAGE_KEY);
 };
