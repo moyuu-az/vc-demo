@@ -31,33 +31,31 @@ import {
   createVerifiableCredential,
   generateAuthorizationResponse,
 } from "@/lib/vc/utils";
-import { saveCredential, getStoredCredentials } from "@/lib/vc/storage-utils";
+import { saveCredential, getStoredCredentials, deleteCredential } from "@/lib/vc/storage-utils";
 
 const VCDemoSystem = () => {
   const [showWallet, setShowWallet] = useState(false);
   const [vcRequested, setVcRequested] = useState(false);
-  const [currentRequest, setCurrentRequest] =
-    useState<AuthorizationRequest | null>(null);
+  const [currentRequest, setCurrentRequest] = useState<AuthorizationRequest | null>(null);
   const [issuedVC, setIssuedVC] = useState<VerifiableCredential | null>(null);
-  const [holderDid, setHolderDid] = useState<string>(
-    "did:web:demo-holder.example.com",
-  );
-  const [currentResponse, setCurrentResponse] =
-    useState<AuthorizationResponse | null>(null);
+  const [holderDid, setHolderDid] = useState<string>("did:web:demo-holder.example.com");
+  const [currentResponse, setCurrentResponse] = useState<AuthorizationResponse | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const [storedCredentials, setStoredCredentials] = useState<
-    VerifiableCredential[]
-  >([]);
+  const [storedCredentials, setStoredCredentials] = useState<VerifiableCredential[]>([]);
+  const [activeTab, setActiveTab] = useState("issuer");
 
   // 保存されたVCを読み込む
   useEffect(() => {
-    const credentials = getStoredCredentials();
-    setStoredCredentials(credentials);
+    const loadCredentials = () => {
+      const credentials = getStoredCredentials();
+      setStoredCredentials(credentials);
+    };
+    loadCredentials();
   }, []);
 
   const handleRequestVC = async () => {
     try {
-      setCurrentStep(1); // DIDsは生成済みとして、認証リクエストステップへ
+      setCurrentStep(1);
       const request = await generateAuthorizationRequest(
         ["DemoCredential"],
         "This is a demo credential issuance request for testing purposes.",
@@ -73,7 +71,7 @@ const VCDemoSystem = () => {
     if (!currentRequest) return;
 
     try {
-      setCurrentStep(2); // 承認と署名ステップへ
+      setCurrentStep(2);
       const response = await generateAuthorizationResponse(
         currentRequest.requestId,
         holderDid,
@@ -94,12 +92,23 @@ const VCDemoSystem = () => {
       const updatedCredentials = getStoredCredentials();
       setStoredCredentials(updatedCredentials);
 
-      setCurrentStep(3); // 発行完了ステップへ
+      setCurrentStep(3);
       setIssuedVC(vc);
       setShowWallet(false);
+
+      // 発行完了後にWalletタブに切り替え
+      setTimeout(() => {
+        setActiveTab("holder");
+      }, 1000);
     } catch (error) {
       console.error("Error accepting VC:", error);
     }
+  };
+
+  const handleDeleteCredential = (credentialId: string) => {
+    deleteCredential(credentialId);
+    const updatedCredentials = getStoredCredentials();
+    setStoredCredentials(updatedCredentials);
   };
 
   const prettifyJson = (obj: any) => {
@@ -108,7 +117,7 @@ const VCDemoSystem = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <Tabs defaultValue="issuer" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="issuer">発行者 (Issuer)</TabsTrigger>
           <TabsTrigger value="holder">Wallet</TabsTrigger>
@@ -125,7 +134,11 @@ const VCDemoSystem = () => {
             <CardContent>
               <VCProcessVisualization currentStep={currentStep} />
 
-              <Button onClick={handleRequestVC} className="w-full mt-6 mb-4">
+              <Button
+                onClick={handleRequestVC}
+                className="w-full mt-6 mb-4"
+                disabled={vcRequested && !issuedVC}
+              >
                 VCを発行
               </Button>
 
@@ -143,9 +156,7 @@ const VCDemoSystem = () => {
 
               {currentResponse && (
                 <div className="mt-4">
-                  <h3 className="text-lg font-semibold mb-2">
-                    認証レスポンス:
-                  </h3>
+                  <h3 className="text-lg font-semibold mb-2">認証レスポンス:</h3>
                   <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
                     {prettifyJson(currentResponse)}
                   </pre>
@@ -182,7 +193,10 @@ const VCDemoSystem = () => {
                     onChange={(e) => setHolderDid(e.target.value)}
                   />
                 </div>
-                <VCWalletView credentials={storedCredentials} />
+                <VCWalletView
+                  credentials={storedCredentials}
+                  onDeleteCredential={handleDeleteCredential}
+                />
               </div>
             </CardContent>
           </Card>

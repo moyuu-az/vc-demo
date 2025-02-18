@@ -1,5 +1,4 @@
 // src/lib/vc/storage-utils.ts
-
 import { VerifiableCredential } from "../types/vc";
 
 const VC_STORAGE_KEY = "stored_credentials";
@@ -28,6 +27,16 @@ export const getStoredCredentials = (): VerifiableCredential[] => {
   } catch (error) {
     console.error("Error retrieving credentials:", error);
     return [];
+  }
+};
+
+export const deleteCredential = (credentialId: string): void => {
+  try {
+    const credentials = getStoredCredentials();
+    const updatedCredentials = credentials.filter(cred => cred.id !== credentialId);
+    localStorage.setItem(VC_STORAGE_KEY, JSON.stringify(updatedCredentials));
+  } catch (error) {
+    console.error("Error deleting credential:", error);
   }
 };
 
