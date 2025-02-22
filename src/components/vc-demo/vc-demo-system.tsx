@@ -247,10 +247,11 @@ const VCDemoSystem = () => {
                       {storedCredentials.map((cred) => (
                         <Card
                           key={cred.id}
-                          className={`cursor-pointer transition-colors ${selectedCredential?.id === cred.id
-                            ? "border-2 border-primary"
-                            : "hover:bg-accent"
-                            }`}
+                          className={`cursor-pointer transition-colors ${
+                            selectedCredential?.id === cred.id
+                              ? "border-2 border-primary"
+                              : "hover:bg-accent"
+                          }`}
                           onClick={() => setSelectedCredential(cred)}
                         >
                           <CardContent className="p-4">
@@ -313,21 +314,35 @@ const VCDemoSystem = () => {
                         <TabsTrigger value="formatted">整形表示</TabsTrigger>
                         <TabsTrigger value="raw">生データ</TabsTrigger>
                       </TabsList>
-                      <TabsContent value="formatted" className="min-h-[200px] max-h-[300px] overflow-y-auto">
+                      <TabsContent
+                        value="formatted"
+                        className="min-h-[200px] max-h-[300px] overflow-y-auto"
+                      >
                         <div className="space-y-2">
                           <div>
-                            <span className="text-sm text-gray-500">リクエストID:</span>
-                            <p className="text-sm break-all">{currentRequest.requestId}</p>
+                            <span className="text-sm text-gray-500">
+                              リクエストID:
+                            </span>
+                            <p className="text-sm break-all">
+                              {currentRequest.requestId}
+                            </p>
                           </div>
                           <div>
-                            <span className="text-sm text-gray-500">タイムスタンプ:</span>
+                            <span className="text-sm text-gray-500">
+                              タイムスタンプ:
+                            </span>
                             <p className="text-sm">
-                              {new Date(currentRequest.timestamp).toLocaleString()}
+                              {new Date(
+                                currentRequest.timestamp,
+                              ).toLocaleString()}
                             </p>
                           </div>
                         </div>
                       </TabsContent>
-                      <TabsContent value="raw" className="min-h-[200px] max-h-[300px] overflow-y-auto">
+                      <TabsContent
+                        value="raw"
+                        className="min-h-[200px] max-h-[300px] overflow-y-auto"
+                      >
                         <pre className="text-sm whitespace-pre-wrap break-all">
                           {JSON.stringify(currentRequest, null, 2)}
                         </pre>

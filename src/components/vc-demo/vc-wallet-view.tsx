@@ -18,12 +18,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface VCWalletViewProps {
   credentials: VerifiableCredential[];
@@ -139,7 +134,9 @@ const VCCard = ({
                   </div>
                   <div>
                     <dt className="text-sm text-gray-500">発行者DID</dt>
-                    <dd className="break-all text-sm">{credential.issuer.id}</dd>
+                    <dd className="break-all text-sm">
+                      {credential.issuer.id}
+                    </dd>
                   </div>
                 </dl>
               </div>
@@ -152,7 +149,10 @@ const VCCard = ({
                     <TabsTrigger value="formatted">整形表示</TabsTrigger>
                     <TabsTrigger value="raw">生データ</TabsTrigger>
                   </TabsList>
-                  <TabsContent value="formatted" className="min-h-[300px] max-h-[500px] overflow-y-auto">
+                  <TabsContent
+                    value="formatted"
+                    className="min-h-[300px] max-h-[500px] overflow-y-auto"
+                  >
                     <div className="space-y-2">
                       <div>
                         <span className="text-sm text-gray-500">ID:</span>
@@ -163,7 +163,9 @@ const VCCard = ({
                         <p className="text-sm">{credential.type.join(", ")}</p>
                       </div>
                       <div>
-                        <span className="text-sm text-gray-500">コンテキスト:</span>
+                        <span className="text-sm text-gray-500">
+                          コンテキスト:
+                        </span>
                         <p className="text-sm break-all">
                           {credential["@context"].join(", ")}
                         </p>
@@ -180,7 +182,10 @@ const VCCard = ({
                       )}
                     </div>
                   </TabsContent>
-                  <TabsContent value="raw" className="min-h-[300px] max-h-[500px] overflow-y-auto">
+                  <TabsContent
+                    value="raw"
+                    className="min-h-[300px] max-h-[500px] overflow-y-auto"
+                  >
                     <pre className="text-sm whitespace-pre-wrap break-all">
                       {JSON.stringify(credential, null, 2)}
                     </pre>
@@ -202,7 +207,10 @@ const VCCard = ({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
               キャンセル
             </Button>
             <Button

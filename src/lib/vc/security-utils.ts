@@ -77,11 +77,11 @@ async function exportKeyToJWK(key: CryptoKey): Promise<JWK> {
 async function createJWS(payload: any, privateKey: CryptoKey): Promise<string> {
   // ペイロードをJSON文字列に変換
   const payloadString = JSON.stringify(payload);
-  
+
   // UTF-8バイト配列に変換
   const encoder = new TextEncoder();
   const payloadBytes = encoder.encode(payloadString);
-  
+
   // Base64エンコード（UTF-8対応）
   const base64Payload = btoa(String.fromCharCode(...payloadBytes));
 
@@ -92,11 +92,13 @@ async function createJWS(payload: any, privateKey: CryptoKey): Promise<string> {
       hash: { name: "SHA-256" },
     },
     privateKey,
-    payloadBytes
+    payloadBytes,
   );
 
   // 署名をBase64エンコード
-  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  const signatureBase64 = btoa(
+    String.fromCharCode(...new Uint8Array(signature)),
+  );
 
   // JWSの形式で返す
   return `${base64Payload}.${signatureBase64}`;

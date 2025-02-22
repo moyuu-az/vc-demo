@@ -65,35 +65,36 @@ const VerifierComponent: React.FC<VerifierProps> = ({ credential }) => {
           return {
             title: "スキーマ検証",
             description: "クレデンシャルが標準的なVC形式に準拠しているか確認",
-            reference: "@context, type, issuer, credentialSubject などの必須フィールドの存在を確認"
+            reference:
+              "@context, type, issuer, credentialSubject などの必須フィールドの存在を確認",
           };
         case "notExpired":
           return {
             title: "有効期限",
             description: "クレデンシャルが有効期限内かどうか確認",
-            reference: `発行日: ${credential?.issuanceDate}\n有効期限: ${credential?.expirationDate || "無期限"}`
+            reference: `発行日: ${credential?.issuanceDate}\n有効期限: ${credential?.expirationDate || "無期限"}`,
           };
         case "notRevoked":
           return {
             title: "失効状態",
             description: "クレデンシャルが失効していないか確認",
-            reference: credential?.credentialStatus ?
-              `失効確認用ID: ${credential.credentialStatus.id}` :
-              "失効情報なし"
+            reference: credential?.credentialStatus
+              ? `失効確認用ID: ${credential.credentialStatus.id}`
+              : "失効情報なし",
           };
         case "proofValid":
           return {
             title: "署名検証",
             description: "発行者の電子署名が有効か確認",
-            reference: credential?.proof ?
-              `署名タイプ: ${credential.proof.type}\n署名日時: ${credential.proof.created}` :
-              "署名情報なし"
+            reference: credential?.proof
+              ? `署名タイプ: ${credential.proof.type}\n署名日時: ${credential.proof.created}`
+              : "署名情報なし",
           };
         case "issuerValid":
           return {
             title: "発行者検証",
             description: "発行者のDIDが有効か確認",
-            reference: `発行者: ${credential?.issuer.name}\nDID: ${credential?.issuer.id}`
+            reference: `発行者: ${credential?.issuer.name}\nDID: ${credential?.issuer.id}`,
           };
         default:
           return { title: "", description: "", reference: "" };
@@ -106,10 +107,7 @@ const VerifierComponent: React.FC<VerifierProps> = ({ credential }) => {
           {Object.entries(verificationResult.checks).map(([key, value]) => {
             const details = getCheckDetails(key);
             return (
-              <div
-                key={key}
-                className="bg-muted rounded-lg overflow-hidden"
-              >
+              <div key={key} className="bg-muted rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-2">
                     {getStatusIcon(value)}
