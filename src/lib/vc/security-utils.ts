@@ -68,6 +68,7 @@ async function exportKeyToJWK(key: CryptoKey): Promise<JWK> {
   const exported = await crypto.subtle.exportKey("jwk", key);
   return {
     ...exported,
+    kty: exported.kty as string,
     alg: "ES256",
     use: "sig",
   };
