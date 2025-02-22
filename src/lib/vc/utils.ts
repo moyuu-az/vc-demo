@@ -5,10 +5,11 @@ import {
   AuthorizationResponse,
   VerifiableCredential,
   VerifiableCredentialSchema,
+  PersonalInfo,
 } from "../types/vc";
 import { generateKeyPair } from "./crypto-utils";
 import { createLinkedDataProof, verifyLinkedDataProof } from "./security-utils";
-import { createDIDDocument, validateDID } from "./did-utils";
+import { createDIDDocument, validateDID, resolveDID } from "./did-utils";
 import { revocationService } from "./revocation-utils";
 
 export async function generateAuthorizationRequest(
@@ -39,19 +40,15 @@ export async function generateAuthorizationRequest(
 
 export async function createVerifiableCredential(
   subjectId: string,
-  claims: Record<string, any>,
+  personalInfo: PersonalInfo,
 ): Promise<VerifiableCredential> {
   if (!validateDID(subjectId)) {
     throw new Error("Invalid DID format for subject");
   }
 
-  // 鍵ペアを生成
   const keyPair = await generateKeyPair();
-
-  // 生成した鍵ペアをログに出力
   await exportKeys(keyPair.publicKey, keyPair.privateKey);
 
-  // 以下は既存のコード
   const credentialId = `urn:uuid:${uuidv4()}`;
   const revocationStatus =
     revocationService.createRevocationStatus(credentialId);
@@ -63,9 +60,10 @@ export async function createVerifiableCredential(
       "https://www.w3.org/2018/credentials/examples/v1",
       "https://w3id.org/security/suites/ed25519-2020/v1",
       "https://w3id.org/vc-revocation-list-2020/v1",
+      "https://schema.org",
     ],
     id: credentialId,
-    type: ["VerifiableCredential", "DemoCredential"],
+    type: ["VerifiableCredential", "PersonalInfoCredential"],
     issuer: {
       id: issuerDid,
       name: "Demo Issuer Organization",
@@ -77,11 +75,14 @@ export async function createVerifiableCredential(
     ).toISOString(),
     credentialSubject: {
       id: subjectId,
-      ...claims,
+      type: "PersonalInfo",
+      name: personalInfo.name,
+      dateOfBirth: personalInfo.dateOfBirth,
+      address: personalInfo.address,
     },
     credentialStatus: revocationStatus,
     credentialSchema: {
-      id: "https://demo-issuer.example.com/schemas/demo-credential.json",
+      id: "https://demo-issuer.example.com/schemas/personal-info.json",
       type: "JsonSchemaValidator2018",
     },
     evidence: [
@@ -95,25 +96,13 @@ export async function createVerifiableCredential(
         verificationMethod: "ProofOfIdentity",
       },
     ],
-    refreshService: {
-      id: `https://demo-issuer.example.com/refresh/${credentialId}`,
-      type: "ManualRefreshService2018",
-    },
-    termsOfUse: [
-      {
-        type: "IssuerPolicy",
-        id: "https://demo-issuer.example.com/policies/credential-terms",
-      },
-    ],
   };
 
-  // Validate the credential against the schema
   const validationResult = VerifiableCredentialSchema.safeParse(credential);
   if (!validationResult.success) {
     throw new Error(`Invalid credential format: ${validationResult.error}`);
   }
 
-  // Create Linked Data Proof
   const proof = await createLinkedDataProof(
     credential,
     issuerDid,
@@ -161,30 +150,32 @@ export async function verifyCredential(
     const validationResult = VerifiableCredentialSchema.safeParse(credential);
     result.checks.schemaValid = validationResult.success;
     if (!validationResult.success) {
-      result.errors.push(`スキーマ検証エラー: ${validationResult.error.message}`);
+      result.errors.push(
+        `スキーマ検証エラー: ${validationResult.error.message}`,
+      );
     }
 
     // 2. 有効期限チェック
     const now = new Date();
     const issuanceDate = new Date(credential.issuanceDate);
-    const expirationDate = credential.expirationDate 
+    const expirationDate = credential.expirationDate
       ? new Date(credential.expirationDate)
       : null;
 
     result.checks.notExpired = true; // デフォルトはtrue
     if (issuanceDate > now) {
       result.checks.notExpired = false;
-      result.errors.push('クレデンシャルの有効期間がまだ始まっていません');
+      result.errors.push("クレデンシャルの有効期間がまだ始まっていません");
     }
     if (expirationDate && expirationDate < now) {
       result.checks.notExpired = false;
-      result.errors.push('クレデンシャルの有効期限が切れています');
+      result.errors.push("クレデンシャルの有効期限が切れています");
     }
 
     // 3. 失効状態チェック
     result.checks.notRevoked = await verifyCredentialStatus(credential.id);
     if (!result.checks.notRevoked) {
-      result.errors.push('このクレデンシャルは失効しています');
+      result.errors.push("このクレデンシャルは失効しています");
     }
 
     // 4. 発行者の検証
@@ -193,7 +184,7 @@ export async function verifyCredential(
       const didDocument = await resolveDID(issuerDID);
       result.checks.issuerValid = !!didDocument && didDocument.id === issuerDID;
       if (!result.checks.issuerValid) {
-        result.errors.push('発行者のDIDが無効です');
+        result.errors.push("発行者のDIDが無効です");
       }
     } catch (error) {
       result.checks.issuerValid = false;
@@ -204,25 +195,26 @@ export async function verifyCredential(
     if (credential.proof) {
       result.checks.proofValid = await verifyLinkedDataProof(
         credential,
-        credential.proof
+        credential.proof,
       );
       if (!result.checks.proofValid) {
-        result.errors.push('クレデンシャルの署名が無効です');
+        result.errors.push("クレデンシャルの署名が無効です");
       }
     } else {
       result.checks.proofValid = false;
-      result.errors.push('クレデンシャルに署名が含まれていません');
+      result.errors.push("クレデンシャルに署名が含まれていません");
     }
 
     // デバッグ用のログ出力
-    console.log('Verification checks:', result.checks);
-    console.log('Verification errors:', result.errors);
+    console.log("Verification checks:", result.checks);
+    console.log("Verification errors:", result.errors);
 
     // 総合判定
-    result.isValid = Object.values(result.checks).every(check => check);
-
+    result.isValid = Object.values(result.checks).every((check) => check);
   } catch (error) {
-    result.errors.push(`検証中に予期せぬエラーが発生しました: ${error.message}`);
+    result.errors.push(
+      `検証中に予期せぬエラーが発生しました: ${error.message}`,
+    );
     result.isValid = false;
   }
 

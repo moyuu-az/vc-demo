@@ -37,6 +37,7 @@ import {
   deleteCredential,
 } from "@/lib/vc/storage-utils";
 import VerifierComponent from "./vc-verifier";
+import VCIssueForm from "./vc-issue-form";
 
 const VCDemoSystem = () => {
   const [showWallet, setShowWallet] = useState(false);
@@ -87,7 +88,7 @@ const VCDemoSystem = () => {
     }
   };
 
-  const handleAcceptVC = async () => {
+  const handleAcceptVC = async (personalInfo: any) => {
     if (!currentRequest) return;
     setIsLoading(true);
 
@@ -100,13 +101,7 @@ const VCDemoSystem = () => {
       );
       setCurrentResponse(response);
 
-      const vc = await createVerifiableCredential(holderDid, {
-        type: "DemoCredential",
-        name: "Demo Credential",
-        description: "This is a demo credential for testing purposes",
-        issuedAt: new Date().toISOString(),
-        status: "valid",
-      });
+      const vc = await createVerifiableCredential(holderDid, personalInfo);
 
       // VCを保存し、保存完了を待つ
       await saveCredential(vc);
@@ -269,7 +264,9 @@ const VCDemoSystem = () => {
                                 </p>
                                 <p className="text-sm text-muted-foreground">
                                   発行日:{" "}
-                                  {new Date(cred.issuanceDate).toLocaleDateString()}
+                                  {new Date(
+                                    cred.issuanceDate,
+                                  ).toLocaleDateString()}
                                 </p>
                               </div>
                             </div>
@@ -287,13 +284,12 @@ const VCDemoSystem = () => {
       </Tabs>
 
       <Dialog open={showWallet} onOpenChange={setShowWallet}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Web Wallet</DialogTitle>
+            <DialogTitle>Verifiable Credential発行</DialogTitle>
           </DialogHeader>
           <div className="p-4">
             <h3 className="text-lg font-semibold mb-4">認証リクエスト</h3>
-            <p className="mb-4">以下の証明書の発行をリクエストしています：</p>
             {currentRequest && (
               <div className="space-y-4">
                 <div className="bg-gray-50 p-4 rounded-lg">
@@ -308,27 +304,46 @@ const VCDemoSystem = () => {
                     <strong>発行者:</strong> {currentRequest.issuer.name} (
                     {currentRequest.issuer.id})
                   </p>
-                  <p>
-                    <strong>リクエストID:</strong> {currentRequest.requestId}
-                  </p>
-                  <p>
-                    <strong>タイムスタンプ:</strong>{" "}
-                    {new Date(currentRequest.timestamp).toLocaleString()}
-                  </p>
                 </div>
-                <div className="relative w-full">
-                  <pre className="bg-gray-100 p-4 rounded text-sm w-full whitespace-pre-wrap break-all">
-                    {prettifyJson(currentRequest)}
-                  </pre>
+                <div>
+                  <h4 className="font-semibold mb-2">リクエスト詳細</h4>
+                  <div className="bg-gray-100 p-4 rounded-md">
+                    <Tabs defaultValue="formatted" className="w-full">
+                      <TabsList className="mb-2">
+                        <TabsTrigger value="formatted">整形表示</TabsTrigger>
+                        <TabsTrigger value="raw">生データ</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="formatted" className="min-h-[200px] max-h-[300px] overflow-y-auto">
+                        <div className="space-y-2">
+                          <div>
+                            <span className="text-sm text-gray-500">リクエストID:</span>
+                            <p className="text-sm break-all">{currentRequest.requestId}</p>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-500">タイムスタンプ:</span>
+                            <p className="text-sm">
+                              {new Date(currentRequest.timestamp).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="raw" className="min-h-[200px] max-h-[300px] overflow-y-auto">
+                        <pre className="text-sm whitespace-pre-wrap break-all">
+                          {JSON.stringify(currentRequest, null, 2)}
+                        </pre>
+                      </TabsContent>
+                    </Tabs>
+                  </div>
                 </div>
+                <VCIssueForm
+                  onSubmit={async (personalInfo) => {
+                    await handleAcceptVC(personalInfo);
+                    setShowWallet(false);
+                  }}
+                  onCancel={() => setShowWallet(false)}
+                />
               </div>
             )}
-            <div className="flex justify-end gap-4 mt-6">
-              <Button variant="outline" onClick={() => setShowWallet(false)}>
-                拒否
-              </Button>
-              <Button onClick={handleAcceptVC}>承認</Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

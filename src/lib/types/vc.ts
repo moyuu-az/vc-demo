@@ -109,3 +109,9 @@ export const AuthorizationResponseSchema = z.object({
 });
 
 export type AuthorizationResponse = z.infer<typeof AuthorizationResponseSchema>;
+
+export interface PersonalInfo {
+  name: string;
+  dateOfBirth: string;
+  address: string;
+}
