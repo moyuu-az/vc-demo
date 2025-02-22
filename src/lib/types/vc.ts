@@ -115,3 +115,15 @@ export interface PersonalInfo {
   dateOfBirth: string;
   address: string;
 }
+
+// 選択的開示のための型定義
+export interface DisclosureRequest {
+  requiredClaims: string[];
+  optionalClaims: string[];
+  purpose: string;
+}
+
+export interface DisclosureResponse {
+  claims: Record<string, any>;
+  proof: Proof;
+}

@@ -6,6 +6,8 @@ import {
   VerifiableCredential,
   VerifiableCredentialSchema,
   PersonalInfo,
+  DisclosureRequest,
+  DisclosureResponse,
 } from "../types/vc";
 import { generateKeyPair } from "./crypto-utils";
 import { createLinkedDataProof, verifyLinkedDataProof } from "./security-utils";
@@ -295,4 +297,38 @@ async function exportKeys(publicKey: CryptoKey, privateKey: CryptoKey) {
   } catch (error) {
     console.error("Error exporting keys:", error);
   }
+}
+
+export async function createSelectiveDisclosure(
+  credential: VerifiableCredential,
+  selectedClaims: string[],
+): Promise<DisclosureResponse> {
+  // 選択された属性のみを含む新しいオブジェクトを作成
+  const disclosedClaims = selectedClaims.reduce(
+    (acc, claim) => {
+      if (credential.credentialSubject[claim]) {
+        acc[claim] = credential.credentialSubject[claim];
+      }
+      return acc;
+    },
+    {} as Record<string, any>,
+  );
+
+  // 選択的開示用の新しいプルーフを生成
+  const proof = await createLinkedDataProof(
+    {
+      ...credential,
+      credentialSubject: {
+        id: credential.credentialSubject.id,
+        ...disclosedClaims,
+      },
+    },
+    credential.issuer.id,
+    "selectiveDisclosure",
+  );
+
+  return {
+    claims: disclosedClaims,
+    proof,
+  };
 }
