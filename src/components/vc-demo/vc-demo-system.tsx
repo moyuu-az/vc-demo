@@ -36,6 +36,7 @@ import {
   getStoredCredentials,
   deleteCredential,
 } from "@/lib/vc/storage-utils";
+import VerifierComponent from "./vc-verifier";
 
 const VCDemoSystem = () => {
   const [showWallet, setShowWallet] = useState(false);
@@ -54,6 +55,8 @@ const VCDemoSystem = () => {
   >([]);
   const [activeTab, setActiveTab] = useState("issuer");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedCredential, setSelectedCredential] =
+    useState<VerifiableCredential | null>(null);
 
   // タブ切り替え時にVCをリロード
   useEffect(() => {
@@ -142,9 +145,10 @@ const VCDemoSystem = () => {
   return (
     <div className="container mx-auto p-4">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="issuer">発行者 (Issuer)</TabsTrigger>
           <TabsTrigger value="holder">Wallet</TabsTrigger>
+          <TabsTrigger value="verifier">検証者 (Verifier)</TabsTrigger>
         </TabsList>
 
         <TabsContent value="issuer">
@@ -223,6 +227,59 @@ const VCDemoSystem = () => {
                   credentials={storedCredentials}
                   onDeleteCredential={handleDeleteCredential}
                 />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="verifier">
+          <Card>
+            <CardHeader>
+              <CardTitle>Verifiable Credential検証</CardTitle>
+              <CardDescription>
+                発行されたVCの有効性を検証できます
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {storedCredentials.length === 0 ? (
+                  <div className="text-center text-gray-500">
+                    検証可能なクレデンシャルがありません
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 gap-4">
+                      {storedCredentials.map((cred) => (
+                        <Card
+                          key={cred.id}
+                          className={`cursor-pointer transition-colors ${selectedCredential?.id === cred.id
+                            ? "border-2 border-primary"
+                            : "hover:bg-accent"
+                            }`}
+                          onClick={() => setSelectedCredential(cred)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">
+                                  {cred.type[cred.type.length - 1]}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  発行者: {cred.issuer.name}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  発行日:{" "}
+                                  {new Date(cred.issuanceDate).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                    <VerifierComponent credential={selectedCredential} />
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

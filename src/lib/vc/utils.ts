@@ -129,35 +129,104 @@ export async function createVerifiableCredential(
   return credential;
 }
 
+export interface VerificationResult {
+  isValid: boolean;
+  checks: {
+    schemaValid: boolean;
+    notExpired: boolean;
+    notRevoked: boolean;
+    proofValid: boolean;
+    issuerValid: boolean;
+  };
+  errors: string[];
+}
+
 export async function verifyCredential(
   credential: VerifiableCredential,
-): Promise<boolean> {
-  // 1. Validate schema
-  const validationResult = VerifiableCredentialSchema.safeParse(credential);
-  if (!validationResult.success) {
-    return false;
+): Promise<VerificationResult> {
+  const result: VerificationResult = {
+    isValid: false,
+    checks: {
+      schemaValid: false,
+      notExpired: false,
+      notRevoked: false,
+      proofValid: false,
+      issuerValid: false,
+    },
+    errors: [],
+  };
+
+  try {
+    // 1. スキーマ検証
+    const validationResult = VerifiableCredentialSchema.safeParse(credential);
+    result.checks.schemaValid = validationResult.success;
+    if (!validationResult.success) {
+      result.errors.push(`スキーマ検証エラー: ${validationResult.error.message}`);
+    }
+
+    // 2. 有効期限チェック
+    const now = new Date();
+    const issuanceDate = new Date(credential.issuanceDate);
+    const expirationDate = credential.expirationDate 
+      ? new Date(credential.expirationDate)
+      : null;
+
+    result.checks.notExpired = true; // デフォルトはtrue
+    if (issuanceDate > now) {
+      result.checks.notExpired = false;
+      result.errors.push('クレデンシャルの有効期間がまだ始まっていません');
+    }
+    if (expirationDate && expirationDate < now) {
+      result.checks.notExpired = false;
+      result.errors.push('クレデンシャルの有効期限が切れています');
+    }
+
+    // 3. 失効状態チェック
+    result.checks.notRevoked = await verifyCredentialStatus(credential.id);
+    if (!result.checks.notRevoked) {
+      result.errors.push('このクレデンシャルは失効しています');
+    }
+
+    // 4. 発行者の検証
+    try {
+      const issuerDID = credential.issuer.id;
+      const didDocument = await resolveDID(issuerDID);
+      result.checks.issuerValid = !!didDocument && didDocument.id === issuerDID;
+      if (!result.checks.issuerValid) {
+        result.errors.push('発行者のDIDが無効です');
+      }
+    } catch (error) {
+      result.checks.issuerValid = false;
+      result.errors.push(`発行者の検証に失敗しました: ${error.message}`);
+    }
+
+    // 5. プルーフの検証
+    if (credential.proof) {
+      result.checks.proofValid = await verifyLinkedDataProof(
+        credential,
+        credential.proof
+      );
+      if (!result.checks.proofValid) {
+        result.errors.push('クレデンシャルの署名が無効です');
+      }
+    } else {
+      result.checks.proofValid = false;
+      result.errors.push('クレデンシャルに署名が含まれていません');
+    }
+
+    // デバッグ用のログ出力
+    console.log('Verification checks:', result.checks);
+    console.log('Verification errors:', result.errors);
+
+    // 総合判定
+    result.isValid = Object.values(result.checks).every(check => check);
+
+  } catch (error) {
+    result.errors.push(`検証中に予期せぬエラーが発生しました: ${error.message}`);
+    result.isValid = false;
   }
 
-  // 2. Check expiration
-  if (
-    credential.expirationDate &&
-    new Date(credential.expirationDate) < new Date()
-  ) {
-    return false;
-  }
-
-  // 3. Check revocation status
-  const isNotRevoked = await verifyCredentialStatus(credential.id);
-  if (!isNotRevoked) {
-    return false;
-  }
-
-  // 4. Verify proof
-  if (!credential.proof) {
-    return false;
-  }
-
-  return await verifyLinkedDataProof(credential, credential.proof);
+  return result;
 }
 
 export async function generateAuthorizationResponse(

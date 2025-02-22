@@ -115,8 +115,13 @@ export async function verifyLinkedDataProof(
   proof: LinkedDataProof,
 ): Promise<boolean> {
   try {
-    const normalizedDoc = await normalizeDocument(document);
+    // proofプロパティを除外したドキュメントのコピーを作成
+    const documentWithoutProof = { ...document };
+    delete documentWithoutProof.proof;
+
+    const normalizedDoc = await normalizeDocument(documentWithoutProof);
     const publicKey = await resolvePublicKey(proof.verificationMethod);
+
     return await verifySignature(normalizedDoc, proof.jws, publicKey);
   } catch (error) {
     console.error("Proof verification failed:", error);
@@ -136,9 +141,9 @@ async function resolvePublicKey(
         namedCurve: "P-256",
       },
       true,
-      ["verify"],
+      ["sign", "verify"],
     )
-    .then((keyPair) => keyPair.publicKey);
+    .then((keyPair: CryptoKeyPair) => keyPair.publicKey);
 }
 
 async function verifySignature(
