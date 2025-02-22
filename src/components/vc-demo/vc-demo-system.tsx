@@ -242,41 +242,7 @@ const VCDemoSystem = () => {
                     検証可能なクレデンシャルがありません
                   </div>
                 ) : (
-                  <>
-                    <div className="grid grid-cols-1 gap-4">
-                      {storedCredentials.map((cred) => (
-                        <Card
-                          key={cred.id}
-                          className={`cursor-pointer transition-colors ${
-                            selectedCredential?.id === cred.id
-                              ? "border-2 border-primary"
-                              : "hover:bg-accent"
-                          }`}
-                          onClick={() => setSelectedCredential(cred)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium">
-                                  {cred.type[cred.type.length - 1]}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  発行者: {cred.issuer.name}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  発行日:{" "}
-                                  {new Date(
-                                    cred.issuanceDate,
-                                  ).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                    <VerifierComponent credential={selectedCredential} />
-                  </>
+                  <VerifierComponent storedCredentials={storedCredentials} />
                 )}
               </div>
             </CardContent>

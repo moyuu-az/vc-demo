@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { VerifiableCredential } from "@/lib/types/vc";
-import { FileCheck, Calendar, Globe, Trash2 } from "lucide-react";
+import { FileCheck, Calendar, Globe, Trash2, Share2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { SelectiveDisclosure } from "./vc-selective-disclosure";
+import { createSelectiveDisclosure } from "@/lib/vc/utils";
 
 interface VCWalletViewProps {
   credentials: VerifiableCredential[];
@@ -34,10 +36,38 @@ const VCCard = ({
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
+  const [showDisclosureDialog, setShowDisclosureDialog] = React.useState(false);
   const issueDate = new Date(credential.issuanceDate);
   const expiryDate = credential.expirationDate
     ? new Date(credential.expirationDate)
     : null;
+
+  const renderCardActions = () => (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hover:bg-green-500 hover:text-white"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowDisclosureDialog(true);
+        }}
+      >
+        <Share2 className="w-5 h-5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hover:bg-red-500 hover:text-white"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowDeleteDialog(true);
+        }}
+      >
+        <Trash2 className="w-5 h-5" />
+      </Button>
+    </div>
+  );
 
   return (
     <>
@@ -55,17 +85,7 @@ const VCCard = ({
                 {credential.type[credential.type.length - 1]}
               </CardTitle>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hover:bg-red-500 hover:text-white"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDeleteDialog(true);
-              }}
-            >
-              <Trash2 className="w-5 h-5" />
-            </Button>
+            {renderCardActions()}
           </div>
           <CardDescription className="text-green-100">
             発行者: {credential.issuer.name || credential.issuer.id}
@@ -223,6 +243,31 @@ const VCCard = ({
               削除
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showDisclosureDialog}
+        onOpenChange={setShowDisclosureDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>選択的開示</DialogTitle>
+            <DialogDescription>
+              開示する情報を選択してください
+            </DialogDescription>
+          </DialogHeader>
+          <SelectiveDisclosure
+            credential={credential}
+            onSubmit={async (selectedClaims) => {
+              const disclosureResponse = await createSelectiveDisclosure(
+                credential,
+                selectedClaims,
+              );
+              console.log("Disclosure response:", disclosureResponse);
+              setShowDisclosureDialog(false);
+            }}
+          />
         </DialogContent>
       </Dialog>
     </>

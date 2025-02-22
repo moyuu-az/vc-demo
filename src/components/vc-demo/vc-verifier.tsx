@@ -4,9 +4,12 @@ import { verifyCredential } from "@/lib/vc/utils";
 import { VerifiableCredential } from "@/lib/types/vc";
 import { CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { VerifierRequest } from "./vc-verifier-request";
+import { Button } from "@/components/ui/button";
+import { SelectiveDisclosure } from "./vc-selective-disclosure";
 
 interface VerifierProps {
-  credential: VerifiableCredential | null;
+  storedCredentials: VerifiableCredential[];
 }
 
 interface VerificationResult {
@@ -21,32 +24,44 @@ interface VerificationResult {
   errors: string[];
 }
 
-const VerifierComponent: React.FC<VerifierProps> = ({ credential }) => {
+const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
+  const [requiredClaims, setRequiredClaims] = useState<string[]>([]);
   const [verificationResult, setVerificationResult] =
     useState<VerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [selectedCredential, setSelectedCredential] =
+    useState<DisclosureResponse | null>(null);
+  const [isRequestConfirmed, setIsRequestConfirmed] = useState(false);
+  const [showCredentialSelection, setShowCredentialSelection] = useState(false);
 
-  useEffect(() => {
-    const verify = async () => {
-      if (!credential) {
-        setVerificationResult(null);
-        return;
+  const handleRequestSubmit = (claims: string[]) => {
+    setRequiredClaims(claims);
+    setIsRequestConfirmed(true);
+    setShowCredentialSelection(true);
+  };
+
+  const handleVerify = async (disclosureResponse: VerifiableCredential) => {
+    setIsVerifying(true);
+    try {
+      // 選択的開示されたクレデンシャルの検証
+      const result = await verifyCredential(disclosureResponse);
+      setVerificationResult(result);
+
+      // 要求した情報が含まれているか確認
+      const hasAllRequiredClaims = requiredClaims.every(
+        (claim) => claim in disclosureResponse.credentialSubject,
+      );
+
+      if (!hasAllRequiredClaims) {
+        result.isValid = false;
+        result.errors.push("要求された情報が不足しています");
       }
-
-      setIsVerifying(true);
-      try {
-        const result = await verifyCredential(credential);
-        console.log("Verification result:", result);
-        setVerificationResult(result);
-      } catch (error) {
-        console.error("検証エラー:", error);
-      } finally {
-        setIsVerifying(false);
-      }
-    };
-
-    verify();
-  }, [credential]);
+    } catch (error) {
+      console.error("検証エラー:", error);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const getStatusIcon = (status: boolean) => {
     return status ? (
@@ -72,29 +87,29 @@ const VerifierComponent: React.FC<VerifierProps> = ({ credential }) => {
           return {
             title: "有効期限",
             description: "クレデンシャルが有効期限内かどうか確認",
-            reference: `発行日: ${credential?.issuanceDate}\n有効期限: ${credential?.expirationDate || "無期限"}`,
+            reference: `発行日: ${selectedCredential?.issuanceDate}\n有効期限: ${selectedCredential?.expirationDate || "無期限"}`,
           };
         case "notRevoked":
           return {
             title: "失効状態",
             description: "クレデンシャルが失効していないか確認",
-            reference: credential?.credentialStatus
-              ? `失効確認用ID: ${credential.credentialStatus.id}`
+            reference: selectedCredential?.credentialStatus
+              ? `失効確認用ID: ${selectedCredential.credentialStatus.id}`
               : "失効情報なし",
           };
         case "proofValid":
           return {
             title: "署名検証",
             description: "発行者の電子署名が有効か確認",
-            reference: credential?.proof
-              ? `署名タイプ: ${credential.proof.type}\n署名日時: ${credential.proof.created}`
+            reference: selectedCredential?.proof
+              ? `署名タイプ: ${selectedCredential.proof.type}\n署名日時: ${selectedCredential.proof.created}`
               : "署名情報なし",
           };
         case "issuerValid":
           return {
             title: "発行者検証",
             description: "発行者のDIDが有効か確認",
-            reference: `発行者: ${credential?.issuer.name}\nDID: ${credential?.issuer.id}`,
+            reference: `発行者: ${selectedCredential?.issuer.name}\nDID: ${selectedCredential?.issuer.id}`,
           };
         default:
           return { title: "", description: "", reference: "" };
@@ -162,38 +177,75 @@ const VerifierComponent: React.FC<VerifierProps> = ({ credential }) => {
     );
   };
 
-  if (!credential) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>クレデンシャル検証</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-4">
-            <AlertCircle className="w-6 h-6 text-muted-foreground mr-2" />
-            <p>検証するクレデンシャルを選択してください</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>検証結果</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isVerifying ? (
-          <div className="flex items-center justify-center p-4">
-            <Loader2 className="w-6 h-6 animate-spin mr-2" />
-            <p>検証中...</p>
-          </div>
-        ) : (
-          renderVerificationDetails()
-        )}
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      {!isRequestConfirmed ? (
+        <VerifierRequest onRequestSubmit={handleRequestSubmit} />
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>要求情報</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <p>以下の情報の提示を要求しています：</p>
+                <ul className="list-disc list-inside">
+                  {requiredClaims.map((claim) => (
+                    <li key={claim}>
+                      {claim === "name" ? "氏名" :
+                        claim === "dateOfBirth" ? "生年月日" : "住所"}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  onClick={() => {
+                    setIsRequestConfirmed(false);
+                    setShowCredentialSelection(false);
+                  }}
+                  variant="outline"
+                  className="mt-4"
+                >
+                  要求情報を変更
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {showCredentialSelection && (
+            <Card>
+              <CardHeader>
+                <CardTitle>クレデンシャル選択</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-4">
+                  {storedCredentials.map((cred) => (
+                    <div
+                      key={cred.id}
+                      className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50"
+                      onClick={() => setSelectedCredential(cred)}
+                    >
+                      <p className="font-medium">{cred.type[cred.type.length - 1]}</p>
+                      <p className="text-sm text-gray-600">発行者: {cred.issuer.name}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {selectedCredential && (
+            <SelectiveDisclosure
+              credential={selectedCredential}
+              requiredClaims={requiredClaims}
+              onSubmit={handleVerify}
+            />
+          )}
+
+          {verificationResult && renderVerificationDetails()}
+        </>
+      )}
+    </div>
   );
 };
 

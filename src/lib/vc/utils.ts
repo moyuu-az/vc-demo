@@ -302,7 +302,7 @@ async function exportKeys(publicKey: CryptoKey, privateKey: CryptoKey) {
 export async function createSelectiveDisclosure(
   credential: VerifiableCredential,
   selectedClaims: string[],
-): Promise<DisclosureResponse> {
+): Promise<VerifiableCredential> {
   // 選択された属性のみを含む新しいオブジェクトを作成
   const disclosedClaims = selectedClaims.reduce(
     (acc, claim) => {
@@ -314,21 +314,29 @@ export async function createSelectiveDisclosure(
     {} as Record<string, any>,
   );
 
-  // 選択的開示用の新しいプルーフを生成
-  const proof = await createLinkedDataProof(
-    {
-      ...credential,
-      credentialSubject: {
-        id: credential.credentialSubject.id,
-        ...disclosedClaims,
-      },
+  // VCの基本構造を維持しながら、選択された属性のみを含む新しいVCを作成
+  const selectiveVC: VerifiableCredential = {
+    "@context": credential["@context"],
+    id: credential.id,
+    type: credential.type,
+    issuer: credential.issuer,
+    issuanceDate: credential.issuanceDate,
+    expirationDate: credential.expirationDate,
+    credentialSubject: {
+      id: credential.credentialSubject.id,
+      ...disclosedClaims,
     },
+  };
+
+  // 新しいプルーフを生成
+  const proof = await createLinkedDataProof(
+    selectiveVC,
     credential.issuer.id,
     "selectiveDisclosure",
   );
 
   return {
-    claims: disclosedClaims,
+    ...selectiveVC,
     proof,
   };
 }
