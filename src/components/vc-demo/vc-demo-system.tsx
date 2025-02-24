@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,35 +8,36 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import VCProcessVisualization from "./vc-process-visualization";
-import VCWalletView from "./vc-wallet-view";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  VerifiableCredential,
   AuthorizationRequest,
   AuthorizationResponse,
+  VerifiableCredential,
 } from "@/lib/types/vc";
 import {
-  generateAuthorizationRequest,
+  deleteCredential,
+  getStoredCredentials,
+  saveCredential,
+} from "@/lib/vc/storage-utils";
+import {
   createVerifiableCredential,
+  generateAuthorizationRequest,
   generateAuthorizationResponse,
 } from "@/lib/vc/utils";
-import {
-  saveCredential,
-  getStoredCredentials,
-  deleteCredential,
-} from "@/lib/vc/storage-utils";
-import VerifierComponent from "./vc-verifier";
+import { QRCodeSVG } from "qrcode.react";
+import { useEffect, useState } from "react";
 import VCIssueForm from "./vc-issue-form";
+import VCProcessVisualization from "./vc-process-visualization";
+import VerifierComponent from "./vc-verifier";
+import VCWalletView from "./vc-wallet-view";
 
 const VCDemoSystem = () => {
   const [showWallet, setShowWallet] = useState(false);

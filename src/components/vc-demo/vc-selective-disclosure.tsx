@@ -1,16 +1,16 @@
-import React, { useState } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
   CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { VerifiableCredential } from "@/lib/types/vc";
 import { createSelectiveDisclosure } from "@/lib/vc/utils";
+import React, { useState } from "react";
 
 interface SelectiveDisclosureProps {
   credential: VerifiableCredential;

@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, ArrowRight, Key, FileText, Shield } from "lucide-react";
+import { Check, FileText, Key, Shield } from "lucide-react";
 
 const ProcessStep = ({
   icon: Icon,

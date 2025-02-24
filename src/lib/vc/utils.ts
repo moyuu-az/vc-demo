@@ -3,20 +3,16 @@ import { v4 as uuidv4 } from "uuid";
 import {
   AuthorizationRequest,
   AuthorizationResponse,
-  VerifiableCredential,
-  VerifiableCredentialSchema,
-  PersonalInfo,
-  DisclosureRequest,
-  DisclosureResponse,
   ErrorInjectionOptions,
+  PersonalInfo,
+  VerifiableCredential,
+  VerifiableCredentialSchema
 } from "../types/vc";
 import { generateKeyPair } from "./crypto-utils";
-import { createLinkedDataProof, verifyLinkedDataProof } from "./security-utils";
-import { createDIDDocument, validateDID, resolveDID } from "./did-utils";
+import { createDIDDocument, resolveDID, validateDID } from "./did-utils";
 import { revocationService } from "./revocation-utils";
-import { createSDJWTCredential, createSelectiveDisclosure } from "./sd-jwt";
-import { base64urlToBuffer } from "./sd-jwt";
-import { createDataIntegrityProof } from "./security-utils";
+import { base64urlToBuffer, createSDJWTCredential } from "./sd-jwt";
+import { createDataIntegrityProof, createLinkedDataProof, verifyLinkedDataProof } from "./security-utils";
 
 export async function generateAuthorizationRequest(
   credentialType: string[],

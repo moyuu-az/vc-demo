@@ -1,8 +1,8 @@
 // src/app/api/credentials/route.ts
-import { promises as fs } from "fs";
-import path from "path";
-import { NextResponse } from "next/server";
 import { VerifiableCredential } from "@/lib/types/vc";
+import { promises as fs } from "fs";
+import { NextResponse } from "next/server";
+import path from "path";
 
 const dataFilePath = path.join(process.cwd(), "data", "credentials.json");
 

@@ -1,6 +1,6 @@
 import {
-  encode as base64urlEncode,
   decode as base64urlDecode,
+  encode as base64urlEncode,
 } from "base64url";
 
 // SD-JWT用の型定義

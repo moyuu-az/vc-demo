@@ -1,7 +1,7 @@
-import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ErrorInjectionOptions } from "@/lib/vc/types";
+import React, { useState } from "react";
 
 export const ErrorInjectionForm: React.FC<{
   onErrorOptionsChange: (options: ErrorInjectionOptions) => void;

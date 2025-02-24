@@ -1,5 +1,5 @@
 // src/components/vc-demo/vc-wallet-view.tsx
-import React from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -7,20 +7,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { VerifiableCredential } from "@/lib/types/vc";
-import { FileCheck, Calendar, Globe, Trash2, Share2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VerifiableCredential } from "@/lib/types/vc";
+import { Calendar, FileCheck, Globe, Share2, Trash2 } from "lucide-react";
+import React from "react";
 import { SelectiveDisclosure } from "./vc-selective-disclosure";
-import { createSelectiveDisclosure } from "@/lib/vc/utils";
 
 interface VCWalletViewProps {
   credentials: VerifiableCredential[];
