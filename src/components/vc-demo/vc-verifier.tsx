@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { verifyCredential } from "@/lib/vc/utils";
-import { VerifiableCredential } from "@/lib/types/vc";
+import { verifyCredential, verifySDJWT } from "@/lib/vc/utils";
+import { VerifiableCredential, DisclosureResponse } from "@/lib/types/vc";
 import { CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { VerifierRequest } from "./vc-verifier-request";
@@ -30,7 +30,7 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
     useState<VerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [selectedCredential, setSelectedCredential] =
-    useState<DisclosureResponse | null>(null);
+    useState<VerifiableCredential | null>(null);
   const [isRequestConfirmed, setIsRequestConfirmed] = useState(false);
   const [showCredentialSelection, setShowCredentialSelection] = useState(false);
 
@@ -43,13 +43,25 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
   const handleVerify = async (disclosureResponse: VerifiableCredential) => {
     setIsVerifying(true);
     try {
-      // 選択的開示されたクレデンシャルの検証
-      const result = await verifyCredential(disclosureResponse);
-      setVerificationResult(result);
+      // SD-JWT形式の検証
+      const sdJwtVerificationResult = await verifySDJWT(disclosureResponse);
+      const result = {
+        isValid: sdJwtVerificationResult.isValid,
+        checks: {
+          schemaValid: true,
+          notExpired: sdJwtVerificationResult.notExpired,
+          proofValid: sdJwtVerificationResult.signatureValid,
+          issuerValid: sdJwtVerificationResult.issuerValid,
+        },
+        errors: sdJwtVerificationResult.errors,
+      };
 
-      // 要求した情報が含まれているか確認
-      const hasAllRequiredClaims = requiredClaims.every(
-        (claim) => claim in disclosureResponse.credentialSubject,
+      setVerificationResult(result);
+      setSelectedCredential(disclosureResponse);
+
+      // 要求情報の検証
+      const hasAllRequiredClaims = requiredClaims.every((claim) =>
+        sdJwtVerificationResult.disclosedClaims.includes(claim),
       );
 
       if (!hasAllRequiredClaims) {
@@ -116,63 +128,115 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
       }
     };
 
+    // 要求情報の開示状態を確認
+    const disclosureStatus = requiredClaims.map((claim) => ({
+      claim,
+      isDisclosed: claim in selectedCredential?.credentialSubject,
+    }));
+    const allClaimsDisclosed = disclosureStatus.every(
+      (status) => status.isDisclosed,
+    );
+
     return (
       <div className="space-y-4">
-        <div className="grid gap-4">
-          {Object.entries(verificationResult.checks).map(([key, value]) => {
-            const details = getCheckDetails(key);
-            return (
-              <div key={key} className="bg-muted rounded-lg overflow-hidden">
-                <div className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(value)}
-                    <span className="font-medium">{details.title}</span>
-                  </div>
-                  <Badge variant={value ? "success" : "destructive"}>
-                    {value ? "有効" : "無効"}
-                  </Badge>
+        <Card>
+          <CardHeader>
+            <CardTitle>検証結果</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {/* 要求情報の検証結果を最初に表示 */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-3">要求情報の開示状態</h4>
+                <div className="space-y-2">
+                  {disclosureStatus.map(({ claim, isDisclosed }) => (
+                    <div key={claim} className="flex items-center gap-2">
+                      {getStatusIcon(isDisclosed)}
+                      <span className="text-sm">
+                        {claim === "name"
+                          ? "氏名"
+                          : claim === "dateOfBirth"
+                            ? "生年月日"
+                            : "住所"}
+                        :
+                      </span>
+                      <span
+                        className={`text-sm ${isDisclosed ? "text-green-600" : "text-red-600"}`}
+                      >
+                        {isDisclosed ? "開示" : "未開示"}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div className="px-4 pb-4 border-t border-border/50">
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {details.description}
-                  </p>
-                  <div className="mt-2 p-2 bg-background/50 rounded text-xs font-mono whitespace-pre-wrap">
-                    {details.reference}
+                {!allClaimsDisclosed && (
+                  <div className="mt-3 text-sm text-red-600 bg-red-50 p-2 rounded">
+                    一部の要求情報が開示されていません
                   </div>
+                )}
+              </div>
+
+              {/* 既存の検証項目の表示 */}
+              <div className="space-y-3">
+                <h4 className="font-medium">技術的検証結果</h4>
+                {Object.entries(verificationResult.checks).map(
+                  ([key, value]) => {
+                    const details = getCheckDetails(key);
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-start gap-2 bg-gray-50 p-3 rounded"
+                      >
+                        {getStatusIcon(value)}
+                        <div>
+                          <h5 className="font-medium">{details.title}</h5>
+                          <p className="text-sm text-gray-600">
+                            {details.description}
+                          </p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {details.reference}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+
+              {/* エラーメッセージの表示 */}
+              {verificationResult.errors.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="font-medium text-red-700 mb-2">検証エラー</h4>
+                  <ul className="list-disc list-inside space-y-1">
+                    {verificationResult.errors.map((error, index) => (
+                      <li key={index} className="text-sm text-red-600">
+                        {error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* 総合判定 */}
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">総合判定:</span>
+                  {getStatusIcon(verificationResult.isValid)}
+                  <span
+                    className={
+                      verificationResult.isValid
+                        ? "text-green-700"
+                        : "text-red-700"
+                    }
+                  >
+                    {verificationResult.isValid
+                      ? "有効なクレデンシャル"
+                      : "無効なクレデンシャル"}
+                  </span>
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {verificationResult.errors.length > 0 && (
-          <div className="mt-4">
-            <h4 className="text-sm font-medium mb-2">検証エラー</h4>
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <ul className="list-disc list-inside space-y-1">
-                {verificationResult.errors.map((error, index) => (
-                  <li key={index} className="text-sm text-red-700">
-                    {error}
-                  </li>
-                ))}
-              </ul>
             </div>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 mt-4">
-          <span className="font-medium">総合判定:</span>
-          {getStatusIcon(verificationResult.isValid)}
-          <span
-            className={
-              verificationResult.isValid ? "text-green-700" : "text-red-700"
-            }
-          >
-            {verificationResult.isValid
-              ? "有効なクレデンシャル"
-              : "無効なクレデンシャル"}
-          </span>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     );
   };
@@ -193,8 +257,11 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                 <ul className="list-disc list-inside">
                   {requiredClaims.map((claim) => (
                     <li key={claim}>
-                      {claim === "name" ? "氏名" :
-                        claim === "dateOfBirth" ? "生年月日" : "住所"}
+                      {claim === "name"
+                        ? "氏名"
+                        : claim === "dateOfBirth"
+                          ? "生年月日"
+                          : "住所"}
                     </li>
                   ))}
                 </ul>
@@ -225,8 +292,12 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                       className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50"
                       onClick={() => setSelectedCredential(cred)}
                     >
-                      <p className="font-medium">{cred.type[cred.type.length - 1]}</p>
-                      <p className="text-sm text-gray-600">発行者: {cred.issuer.name}</p>
+                      <p className="font-medium">
+                        {cred.type[cred.type.length - 1]}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        発行者: {cred.issuer.name}
+                      </p>
                     </div>
                   ))}
                 </div>

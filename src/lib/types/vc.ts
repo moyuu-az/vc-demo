@@ -6,11 +6,13 @@ export const ProofSchema = z.object({
   created: z.string(),
   verificationMethod: z.string(),
   proofPurpose: z.string(),
+  // cryptosuite は Data Integrity Proof v2 では必須です
+  cryptosuite: z.string(),
+  // proofValue は Data Integrity Proof v2 では jws の代わりに使用します
   proofValue: z.string().optional(),
-  jws: z.string(),
+  jws: z.string(), // これは削除すべき
   challenge: z.string().optional(),
   domain: z.string().optional(),
-  cryptosuite: z.string(),
 });
 
 export type Proof = z.infer<typeof ProofSchema>;
@@ -19,8 +21,10 @@ export type Proof = z.infer<typeof ProofSchema>;
 export const CredentialStatusSchema = z.object({
   id: z.string(),
   type: z.string(),
-  revocationListIndex: z.string().optional(),
-  revocationListCredential: z.string().optional(),
+  statusPurpose: z.string(),
+  // Status List 2023 の新しいフィールド
+  statusListIndex: z.string(),
+  statusListCredential: z.string(),
 });
 
 export type CredentialStatus = z.infer<typeof CredentialStatusSchema>;
@@ -64,8 +68,8 @@ export const VerifiableCredentialSchema = z.object({
     name: z.string().optional(),
     image: z.string().optional(),
   }),
-  issuanceDate: z.string(),
-  expirationDate: z.string().optional(),
+  validFrom: z.string(),
+  validUntil: z.string().optional(),
   credentialSubject: z
     .object({
       id: z.string(),
@@ -79,10 +83,12 @@ export const VerifiableCredentialSchema = z.object({
   termsOfUse: z.array(TermsOfUseSchema).optional(),
   evidence: z.array(EvidenceSchema).optional(),
   proof: ProofSchema.optional(),
-  style: z.object({
-    backgroundColor: z.string().optional(),
-    textColor: z.string().optional(),
-  }).optional(),
+  style: z
+    .object({
+      backgroundColor: z.string().optional(),
+      textColor: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type VerifiableCredential = z.infer<typeof VerifiableCredentialSchema>;
@@ -132,4 +138,12 @@ export interface DisclosureRequest {
 export interface DisclosureResponse {
   claims: Record<string, any>;
   proof: Proof;
+}
+
+export interface ErrorInjectionOptions {
+  invalidSignature: boolean;
+  expiredCredential: boolean;
+  invalidIssuer: boolean;
+  missingFields: boolean;
+  revokedCredential: boolean;
 }

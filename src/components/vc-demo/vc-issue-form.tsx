@@ -54,8 +54,8 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
       ...personalInfo,
       style: {
         backgroundColor: selectedColor.bg,
-        textColor: selectedColor.text
-      }
+        textColor: selectedColor.text,
+      },
     });
   };
 
@@ -116,7 +116,7 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
               key={color.label}
               type="button"
               className={`h-10 rounded-md bg-gradient-to-br ${color.bg} ${color.text} 
-                ${selectedColor.bg === color.bg ? 'ring-2 ring-offset-2 ring-black' : ''}`}
+                ${selectedColor.bg === color.bg ? "ring-2 ring-offset-2 ring-black" : ""}`}
               onClick={() => setSelectedColor(color)}
             >
               {color.label}

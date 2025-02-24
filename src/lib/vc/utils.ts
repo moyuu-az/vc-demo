@@ -8,11 +8,15 @@ import {
   PersonalInfo,
   DisclosureRequest,
   DisclosureResponse,
+  ErrorInjectionOptions,
 } from "../types/vc";
 import { generateKeyPair } from "./crypto-utils";
 import { createLinkedDataProof, verifyLinkedDataProof } from "./security-utils";
 import { createDIDDocument, validateDID, resolveDID } from "./did-utils";
 import { revocationService } from "./revocation-utils";
+import { createSDJWTCredential, createSelectiveDisclosure } from "./sd-jwt";
+import { base64urlToBuffer } from "./sd-jwt";
+import { createDataIntegrityProof } from "./security-utils";
 
 export async function generateAuthorizationRequest(
   credentialType: string[],
@@ -43,26 +47,19 @@ export async function generateAuthorizationRequest(
 export async function createVerifiableCredential(
   subjectId: string,
   info: PersonalInfo,
+  errorOptions?: ErrorInjectionOptions,
 ): Promise<VerifiableCredential> {
-  if (!validateDID(subjectId)) {
-    throw new Error("Invalid DID format for subject");
-  }
-
-  const keyPair = await generateKeyPair();
-  await exportKeys(keyPair.publicKey, keyPair.privateKey);
-
   const credentialId = `urn:uuid:${uuidv4()}`;
-  const revocationStatus =
-    revocationService.createRevocationStatus(credentialId);
-  const issuerDid = "did:web:demo-issuer.example.com";
+  const issuerDid = errorOptions?.invalidIssuer
+    ? "did:web:invalid-issuer.example.com"
+    : "did:web:demo-issuer.example.com";
 
   const credential: VerifiableCredential = {
     "@context": [
-      "https://www.w3.org/2018/credentials/v1",
-      "https://www.w3.org/2018/credentials/examples/v1",
-      "https://w3id.org/security/suites/ed25519-2020/v1",
-      "https://w3id.org/vc-revocation-list-2020/v1",
-      "https://schema.org"
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2",
+      "https://w3id.org/security/data-integrity/v2",
+      "https://w3id.org/status-list/2023/v1",
     ],
     id: credentialId,
     type: ["VerifiableCredential", "PersonalInfoCredential"],
@@ -71,49 +68,37 @@ export async function createVerifiableCredential(
       name: "Demo Issuer Organization",
       image: "https://demo-issuer.example.com/logo.png",
     },
-    issuanceDate: new Date().toISOString(),
-    expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-    credentialSubject: {
-      id: subjectId,
-      type: "PersonalInfo",
-      name: info.name,
-      dateOfBirth: info.dateOfBirth,
-      address: info.address,
-    },
-    style: info.style,
-    credentialStatus: revocationStatus,
-    credentialSchema: {
-      id: "https://demo-issuer.example.com/schemas/personal-info.json",
-      type: "JsonSchemaValidator2018",
-    },
-    evidence: [
-      {
-        id: `${credentialId}#evidence-1`,
-        type: ["DocumentVerification"],
-        verifier: issuerDid,
-        evidenceDocument: "Verified Identity Document",
-        subjectPresence: "Physical",
-        documentPresence: "Physical",
-        verificationMethod: "ProofOfIdentity",
-      },
-    ],
+    validFrom: errorOptions?.expiredCredential
+      ? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
+      : new Date().toISOString(),
+    validUntil: errorOptions?.expiredCredential
+      ? new Date(Date.now() - 1).toISOString()
+      : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+    credentialSubject: errorOptions?.missingFields
+      ? { id: subjectId, type: "PersonalInfo" }
+      : {
+          id: subjectId,
+          type: "PersonalInfo",
+          name: info.name,
+          dateOfBirth: info.dateOfBirth,
+          address: info.address,
+        },
   };
 
-  const validationResult = VerifiableCredentialSchema.safeParse(credential);
-  if (!validationResult.success) {
-    throw new Error(`Invalid credential format: ${validationResult.error}`);
+  if (!errorOptions?.missingFields) {
+    credential.credentialStatus = {
+      id: `https://demo-issuer.example.com/status/${credentialId}`,
+      type: "StatusList2021Entry",
+      statusPurpose: "revocation",
+      revocationListIndex: errorOptions?.revokedCredential ? "1" : "0",
+      revocationListCredential: "https://demo-issuer.example.com/status-list/2021",
+    };
   }
 
-  const proof = await createLinkedDataProof(
+  const proof = await createDataIntegrityProof(
     credential,
-    issuerDid,
-    "assertionMethod",
-    {
-      challenge: uuidv4(),
-      domain: "demo-issuer.example.com",
-    },
+    errorOptions?.invalidSignature,
   );
-
   credential.proof = proof;
 
   return credential;
@@ -189,7 +174,9 @@ export async function verifyCredential(
       }
     } catch (error) {
       result.checks.issuerValid = false;
-      result.errors.push(`発行者の検証に失敗しました: ${error.message}`);
+      result.errors.push(
+        `発行者の検証に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`
+      );
     }
 
     // 5. プルーフの検証
@@ -214,7 +201,7 @@ export async function verifyCredential(
     result.isValid = Object.values(result.checks).every((check) => check);
   } catch (error) {
     result.errors.push(
-      `検証中に予期せぬエラーが発生しました: ${error.message}`,
+      `検証中に予期せぬエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`
     );
     result.isValid = false;
   }
@@ -302,42 +289,80 @@ export async function createSelectiveDisclosure(
   credential: VerifiableCredential,
   selectedClaims: string[],
 ): Promise<VerifiableCredential> {
-  // 選択された属性のみを含む新しいオブジェクトを作成
-  const disclosedClaims = selectedClaims.reduce(
-    (acc, claim) => {
-      if (credential.credentialSubject[claim]) {
-        acc[claim] = credential.credentialSubject[claim];
-      }
-      return acc;
-    },
-    {} as Record<string, any>,
+  if (!credential || !credential.credentialSubject) {
+    throw new Error("Invalid credential: credentialSubject is missing");
+  }
+
+  // SD-JWT形式でクレデンシャルを作成
+  const sdJwt = await createSDJWTCredential(credential, selectedClaims);
+
+  // 選択的開示用のSD-JWTを作成
+  const presentation = await createSDJWTPresentation(sdJwt, selectedClaims);
+
+  // 検証用のVCフォーマットに変換
+  return convertSDJWTtoVC(presentation);
+}
+
+// SD-JWT形式のプレゼンテーションを作成する関数を追加
+async function createSDJWTPresentation(
+  sdJwt: SDJWT,
+  selectedClaims: string[],
+): Promise<string> {
+  const { jwt, disclosures } = sdJwt;
+
+  // 選択された開示情報のみを含める
+  const selectedDisclosures = disclosures.filter((disclosure) => {
+    const [, claim] = JSON.parse(
+      new TextDecoder().decode(base64urlToBuffer(disclosure)),
+    );
+    return selectedClaims.includes(claim);
+  });
+
+  // JWT と選択された開示情報を ~ で結合
+  return [jwt, ...selectedDisclosures].join("~");
+}
+
+// VCフォーマットへの変換関数を追加
+function convertSDJWTtoVC(presentation: string): VerifiableCredential {
+  const [jwt, ...disclosures] = presentation.split("~");
+  const [headerB64, payloadB64] = jwt.split(".");
+
+  // JWTペイロードをデコード
+  const payload = JSON.parse(
+    new TextDecoder().decode(base64urlToBuffer(payloadB64)),
   );
 
-  // VCの基本構造を維持しながら、選択された属性のみを含む新しいVCを作成
-  const selectiveVC: VerifiableCredential = {
-    "@context": credential["@context"],
-    id: credential.id,
-    type: credential.type,
-    issuer: credential.issuer,
-    issuanceDate: credential.issuanceDate,
-    expirationDate: credential.expirationDate,
-    credentialSubject: {
-      id: credential.credentialSubject.id,
-      type: credential.credentialSubject.type,
-      ...disclosedClaims,
-    },
-    style: credential.style,
+  // 開示された情報を解析
+  const disclosedClaims: Record<string, any> = {
+    id: payload.sub || payload.id,
+    type: "PersonalInfo",
   };
 
-  // 新しいプルーフを生成
-  const proof = await createLinkedDataProof(
-    selectiveVC,
-    credential.issuer.id,
-    "selectiveDisclosure",
-  );
+  // 開示情報をクレデンシャルに追加
+  for (const disclosure of disclosures) {
+    const [, claim, value] = JSON.parse(
+      new TextDecoder().decode(base64urlToBuffer(disclosure)),
+    );
+    disclosedClaims[claim] = value;
+  }
 
   return {
-    ...selectiveVC,
-    proof,
+    "@context": payload["@context"],
+    id: payload.jti || `urn:uuid:${crypto.randomUUID()}`,
+    type: payload.type,
+    issuer: payload.issuer,
+    validFrom: payload.validFrom || payload.iat,
+    validUntil: payload.validUntil || payload.exp,
+    credentialSubject: disclosedClaims,
+    proof: {
+      type: "JsonWebSignature2020",
+      created: new Date().toISOString(),
+      jws: presentation,
+      verificationMethod: `${payload.issuer.id}#key-1`,
+      proofPurpose: "assertionMethod",
+      cryptosuite: "ecdsa-p256",
+    },
   };
 }
+
+export { verifySDJWT } from "./sd-jwt";

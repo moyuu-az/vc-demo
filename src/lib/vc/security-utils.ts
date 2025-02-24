@@ -54,9 +54,9 @@ export async function createLinkedDataProof(
 async function normalizeDocument(document: any): Promise<string> {
   const context = {
     "@context": [
-      "https://www.w3.org/2018/credentials/v1",
-      "https://www.w3.org/2018/credentials/examples/v1",
-      "https://w3id.org/security/suites/jws-2020/v1",
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2",
+      "https://w3id.org/security/suites/jws-2020/v2",
     ],
   };
 
@@ -162,4 +162,36 @@ async function verifySignature(
     console.error("Signature verification failed:", error);
     return false;
   }
+}
+
+export async function createDataIntegrityProof(
+  document: any,
+): Promise<SecurityProof> {
+  // キーペアの生成
+  const keyPair = await generateKeyPair();
+
+  // ドキュメントの正規化（JSON文字列に変換）
+  const normalizedDoc = JSON.stringify(document);
+
+  // 署名の生成
+  const signature = await crypto.subtle.sign(
+    {
+      name: "ECDSA",
+      hash: { name: "SHA-256" },
+    },
+    keyPair.privateKey,
+    new TextEncoder().encode(normalizedDoc),
+  );
+
+  // Base64エンコード
+  const jws = btoa(String.fromCharCode(...new Uint8Array(signature)));
+
+  return {
+    type: "DataIntegrityProof",
+    created: new Date().toISOString(),
+    verificationMethod: "did:web:demo-issuer.example.com#key-1",
+    proofPurpose: "assertionMethod",
+    cryptosuite: "ecdsa-2019",
+    jws,
+  };
 }

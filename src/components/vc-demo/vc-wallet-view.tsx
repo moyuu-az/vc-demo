@@ -30,13 +30,16 @@ interface VCWalletViewProps {
 const VCCard = ({
   credential,
   onDelete,
+  onSubmit,
 }: {
   credential: VerifiableCredential;
   onDelete: () => void;
+  onSubmit: (credential: VerifiableCredential) => void;
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
   const [showDisclosureDialog, setShowDisclosureDialog] = React.useState(false);
+  const [requiredClaims, setRequiredClaims] = React.useState<string[]>([]);
   const issueDate = new Date(credential.issuanceDate);
   const expiryDate = credential.expirationDate
     ? new Date(credential.expirationDate)
@@ -45,8 +48,13 @@ const VCCard = ({
   // デフォルトのスタイルを設定
   const cardStyle = credential.style || {
     backgroundColor: "from-green-500 to-green-600",
-    textColor: "text-white"
+    textColor: "text-white",
   };
+
+  // デバッグ用のログ出力を追加
+  React.useEffect(() => {
+    console.log("Current credential:", credential);
+  }, [credential]);
 
   const renderCardActions = () => (
     <div className="flex items-center gap-2">
@@ -263,17 +271,20 @@ const VCCard = ({
               開示する情報を選択してください
             </DialogDescription>
           </DialogHeader>
-          <SelectiveDisclosure
-            credential={credential}
-            onSubmit={async (selectedClaims) => {
-              const disclosureResponse = await createSelectiveDisclosure(
-                credential,
-                selectedClaims,
-              );
-              console.log("Disclosure response:", disclosureResponse);
-              setShowDisclosureDialog(false);
-            }}
-          />
+          {credential && credential.credentialSubject ? (
+            <SelectiveDisclosure
+              credential={credential}
+              requiredClaims={requiredClaims}
+              onSubmit={(disclosureResponse) => {
+                onSubmit(disclosureResponse);
+                setShowDisclosureDialog(false);
+              }}
+            />
+          ) : (
+            <div className="text-red-600 p-4">
+              クレデンシャルの形式が正しくありません
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
@@ -306,6 +317,9 @@ const VCWalletView = ({
           key={credential.id || index}
           credential={credential}
           onDelete={() => onDeleteCredential(credential.id)}
+          onSubmit={(credential) => {
+            // Implement the logic to handle the submission of disclosure response
+          }}
         />
       ))}
     </div>

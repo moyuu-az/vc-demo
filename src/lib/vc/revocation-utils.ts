@@ -30,11 +30,11 @@ export class RevocationService {
   public createRevocationListCredential(): RevocationList {
     return {
       "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://w3id.org/vc-revocation-list-2020/v1",
+        "https://www.w3.org/ns/credentials/v2",
+        "https://w3id.org/vc-revocation-list-2020/v2",
       ],
       id: this.listId,
-      type: ["VerifiableCredential", "RevocationList2020Credential"],
+      type: ["VerifiableCredential", "RevocationList2021Credential"],
       credentialSubject: {
         id: `${this.listId}#list`,
         type: "RevocationList2020",
@@ -75,3 +75,42 @@ export class RevocationService {
 }
 
 export const revocationService = new RevocationService();
+
+function convertSDJWTtoVC(presentation: string): VerifiableCredential {
+  const [jwt, ...disclosures] = presentation.split("~");
+  const [headerB64, payloadB64] = jwt.split(".");
+
+  // JWTペイロードをデコード
+  const payload = JSON.parse(
+    new TextDecoder().decode(base64urlToBuffer(payloadB64)),
+  );
+
+  // 開示された情報を解析
+  const disclosedClaims: Record<string, any> = {
+    id: payload.sub || payload.id,
+    type: "PersonalInfo",
+  };
+
+  // 開示情報をクレデンシャルに追加
+  for (const disclosure of disclosures) {
+    const [, claim, value] = JSON.parse(
+      new TextDecoder().decode(base64urlToBuffer(disclosure)),
+    );
+    disclosedClaims[claim] = value;
+  }
+
+  return {
+    "@context": payload["@context"],
+    id: payload.jti || payload.id,
+    type: payload.type,
+    issuer: payload.issuer,
+    validFrom: payload.validFrom,
+    validUntil: payload.validUntil,
+    credentialSubject: disclosedClaims,
+    proof: {
+      type: "JsonWebSignature2020",
+      created: new Date().toISOString(),
+      jws: presentation,
+    },
+  };
+}
