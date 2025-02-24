@@ -39,9 +39,9 @@ const VCCard = ({
   const [showDetailsDialog, setShowDetailsDialog] = React.useState(false);
   const [showDisclosureDialog, setShowDisclosureDialog] = React.useState(false);
   const [requiredClaims, setRequiredClaims] = React.useState<string[]>([]);
-  const issueDate = new Date(credential.issuanceDate);
-  const expiryDate = credential.expirationDate
-    ? new Date(credential.expirationDate)
+  const issueDate = new Date(credential.issuanceDate || credential.validFrom);
+  const expiryDate = credential.validUntil
+    ? new Date(credential.validUntil)
     : null;
 
   // デフォルトのスタイルを設定

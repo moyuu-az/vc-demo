@@ -1,13 +1,16 @@
-import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PersonalInfo } from "@/lib/types/vc";
 import { fetchAddressFromPostalCode } from "@/lib/utils/address";
+import { ErrorInjectionOptions } from "@/lib/vc/types";
 import { Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { ErrorInjectionForm } from "./error-injection-form";
 
 interface VCIssueFormProps {
-  onSubmit: (personalInfo: PersonalInfo) => void;
+  onSubmit: (personalInfo: PersonalInfo, errorOptions: ErrorInjectionOptions) => void;
   onCancel: () => void;
 }
 
@@ -18,8 +21,19 @@ const colorOptions = [
   { bg: "from-red-500 to-red-600", text: "text-white", label: "赤" },
 ];
 
+const predefinedTypes = [
+  "PersonalInfoCredential",
+  "StudentCredential",
+  "EmployeeCredential",
+  "MembershipCredential",
+  "HealthCredential",
+];
+
 const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
   const [selectedColor, setSelectedColor] = useState(colorOptions[0]);
+  const [credentialType, setCredentialType] = useState("PersonalInfoCredential");
+  const [isCustomType, setIsCustomType] = useState(false);
+  const [customType, setCustomType] = useState("");
   const [personalInfo, setPersonalInfo] = React.useState<PersonalInfo>({
     name: "",
     dateOfBirth: "",
@@ -27,6 +41,22 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
   });
   const [postalCode, setPostalCode] = React.useState("");
   const [isLoadingAddress, setIsLoadingAddress] = React.useState(false);
+  const [errorOptions, setErrorOptions] = useState<ErrorInjectionOptions>({
+    invalidSignature: false,
+    expiredCredential: false,
+    invalidIssuer: false,
+    missingFields: false,
+    revokedCredential: false,
+  });
+
+  // エラータイプの設定
+  const [errorTypes, setErrorTypes] = useState({
+    invalidSignature: "InvalidSignatureCredential",
+    expiredCredential: "ExpiredCredential",
+    invalidIssuer: "InvalidIssuerCredential",
+    missingFields: "MissingFieldsCredential",
+    revokedCredential: "RevokedCredential",
+  });
 
   const handlePostalCodeChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -50,17 +80,73 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // エラーオプションに応じてタイプを変更
+    let finalType = isCustomType ? customType : credentialType;
+
     onSubmit({
       ...personalInfo,
       style: {
         backgroundColor: selectedColor.bg,
         textColor: selectedColor.text,
       },
-    });
+      credentialType: finalType,
+      errorOptions: errorOptions  // エラーオプションを明示的に追加
+    }, errorOptions);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label>クレデンシャルタイプ</Label>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="customType"
+            checked={isCustomType}
+            onCheckedChange={(checked) => setIsCustomType(checked as boolean)}
+          />
+          <Label htmlFor="customType">カスタムタイプを使用</Label>
+        </div>
+
+        {isCustomType ? (
+          <Input
+            value={customType}
+            onChange={(e) => setCustomType(e.target.value)}
+            placeholder="カスタムタイプを入力"
+            className="mt-2"
+          />
+        ) : (
+          <select
+            value={credentialType}
+            onChange={(e) => setCredentialType(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2"
+          >
+            {predefinedTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* エラー注入オプションのタイプ設定 */}
+      {Object.entries(errorOptions).map(([key, value]) => (
+        value && (
+          <div key={key} className="space-y-2">
+            <Label htmlFor={`errorType_${key}`}>{`${key}のタイプ名`}</Label>
+            <Input
+              id={`errorType_${key}`}
+              value={errorTypes[key as keyof typeof errorTypes]}
+              onChange={(e) => setErrorTypes(prev => ({
+                ...prev,
+                [key]: e.target.value
+              }))}
+              placeholder="エラータイプ名を入力"
+            />
+          </div>
+        )
+      ))}
+
       <div>
         <Label htmlFor="name">氏名</Label>
         <Input
@@ -123,6 +209,9 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
             </button>
           ))}
         </div>
+      </div>
+      <div className="border-t pt-4">
+        <ErrorInjectionForm onErrorOptionsChange={setErrorOptions} />
       </div>
       <div className="flex justify-end gap-4">
         <Button type="button" variant="outline" onClick={onCancel}>

@@ -101,12 +101,18 @@ const VCDemoSystem = () => {
       );
       setCurrentResponse(response);
 
-      const vc = await createVerifiableCredential(holderDid, personalInfo);
+      const vc = await createVerifiableCredential(
+        holderDid,
+        {
+          name: personalInfo.name,
+          dateOfBirth: personalInfo.dateOfBirth,
+          address: personalInfo.address,
+        },
+        personalInfo.errorOptions,
+        personalInfo.credentialType
+      );
 
-      // VCを保存し、保存完了を待つ
       await saveCredential(vc);
-
-      // 最新のクレデンシャルリストを取得
       const updatedCredentials = await getStoredCredentials();
       setStoredCredentials(updatedCredentials);
 
@@ -251,7 +257,7 @@ const VCDemoSystem = () => {
       </Tabs>
 
       <Dialog open={showWallet} onOpenChange={setShowWallet}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Verifiable Credential発行</DialogTitle>
           </DialogHeader>

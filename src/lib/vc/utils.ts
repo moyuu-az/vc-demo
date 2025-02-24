@@ -44,6 +44,7 @@ export async function createVerifiableCredential(
   subjectId: string,
   info: PersonalInfo,
   errorOptions?: ErrorInjectionOptions,
+  credentialType: string = "PersonalInfoCredential"
 ): Promise<VerifiableCredential> {
   const credentialId = `urn:uuid:${uuidv4()}`;
   const issuerDid = errorOptions?.invalidIssuer
@@ -58,14 +59,15 @@ export async function createVerifiableCredential(
       "https://w3id.org/status-list/2023/v1",
     ],
     id: credentialId,
-    type: ["VerifiableCredential", "PersonalInfoCredential"],
+    type: ["VerifiableCredential", credentialType],
     issuer: {
       id: issuerDid,
       name: "Demo Issuer Organization",
       image: "https://demo-issuer.example.com/logo.png",
     },
+    issuanceDate: new Date().toISOString(),
     validFrom: errorOptions?.expiredCredential
-      ? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
+      ? new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString()
       : new Date().toISOString(),
     validUntil: errorOptions?.expiredCredential
       ? new Date(Date.now() - 1).toISOString()
