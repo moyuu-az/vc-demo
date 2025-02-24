@@ -42,6 +42,12 @@ const VCCard = ({
     ? new Date(credential.expirationDate)
     : null;
 
+  // デフォルトのスタイルを設定
+  const cardStyle = credential.style || {
+    backgroundColor: "from-green-500 to-green-600",
+    textColor: "text-white"
+  };
+
   const renderCardActions = () => (
     <div className="flex items-center gap-2">
       <Button
@@ -72,7 +78,7 @@ const VCCard = ({
   return (
     <>
       <Card
-        className="hover:shadow-lg transition-shadow bg-gradient-to-br from-green-500 to-green-600 text-white"
+        className={`hover:shadow-lg transition-shadow bg-gradient-to-br ${cardStyle.backgroundColor} ${cardStyle.textColor}`}
         onClick={() => setShowDetailsDialog(true)}
         role="button"
         tabIndex={0}

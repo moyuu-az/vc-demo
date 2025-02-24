@@ -69,7 +69,9 @@ export const VerifiableCredentialSchema = z.object({
   credentialSubject: z
     .object({
       id: z.string(),
+      type: z.string(),
     })
+    .catchall(z.any())
     .and(z.record(z.string(), z.any())),
   credentialStatus: CredentialStatusSchema.optional(),
   credentialSchema: CredentialSchemaSchema.optional(),
@@ -77,6 +79,10 @@ export const VerifiableCredentialSchema = z.object({
   termsOfUse: z.array(TermsOfUseSchema).optional(),
   evidence: z.array(EvidenceSchema).optional(),
   proof: ProofSchema.optional(),
+  style: z.object({
+    backgroundColor: z.string().optional(),
+    textColor: z.string().optional(),
+  }).optional(),
 });
 
 export type VerifiableCredential = z.infer<typeof VerifiableCredentialSchema>;

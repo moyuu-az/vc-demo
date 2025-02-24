@@ -38,7 +38,7 @@ export const SelectiveDisclosure: React.FC<SelectiveDisclosureProps> = ({
       <CardContent>
         <div className="space-y-4">
           {Object.keys(credential.credentialSubject)
-            .filter((key) => key !== "id" && key !== "type")
+            .filter((key) => key !== "id")
             .map((claim) => (
               <div key={claim} className="flex items-center space-x-2">
                 <Checkbox
@@ -51,7 +51,7 @@ export const SelectiveDisclosure: React.FC<SelectiveDisclosureProps> = ({
                         : [...prev, claim]
                     );
                   }}
-                  disabled={requiredClaims.includes(claim)}
+                  disabled={requiredClaims.includes(claim) || claim === "type"}
                 />
                 <Label htmlFor={claim}>{claim}</Label>
               </div>

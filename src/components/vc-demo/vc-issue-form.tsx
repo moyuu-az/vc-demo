@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,15 @@ interface VCIssueFormProps {
   onCancel: () => void;
 }
 
+const colorOptions = [
+  { bg: "from-green-500 to-green-600", text: "text-white", label: "緑" },
+  { bg: "from-blue-500 to-blue-600", text: "text-white", label: "青" },
+  { bg: "from-purple-500 to-purple-600", text: "text-white", label: "紫" },
+  { bg: "from-red-500 to-red-600", text: "text-white", label: "赤" },
+];
+
 const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
+  const [selectedColor, setSelectedColor] = useState(colorOptions[0]);
   const [personalInfo, setPersonalInfo] = React.useState<PersonalInfo>({
     name: "",
     dateOfBirth: "",
@@ -42,7 +50,13 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(personalInfo);
+    onSubmit({
+      ...personalInfo,
+      style: {
+        backgroundColor: selectedColor.bg,
+        textColor: selectedColor.text
+      }
+    });
   };
 
   return (
@@ -93,6 +107,22 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
           }
           required
         />
+      </div>
+      <div>
+        <Label>カードの色</Label>
+        <div className="grid grid-cols-4 gap-2 mt-2">
+          {colorOptions.map((color) => (
+            <button
+              key={color.label}
+              type="button"
+              className={`h-10 rounded-md bg-gradient-to-br ${color.bg} ${color.text} 
+                ${selectedColor.bg === color.bg ? 'ring-2 ring-offset-2 ring-black' : ''}`}
+              onClick={() => setSelectedColor(color)}
+            >
+              {color.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="flex justify-end gap-4">
         <Button type="button" variant="outline" onClick={onCancel}>

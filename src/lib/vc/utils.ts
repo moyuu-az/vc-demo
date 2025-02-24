@@ -42,7 +42,7 @@ export async function generateAuthorizationRequest(
 
 export async function createVerifiableCredential(
   subjectId: string,
-  personalInfo: PersonalInfo,
+  info: PersonalInfo,
 ): Promise<VerifiableCredential> {
   if (!validateDID(subjectId)) {
     throw new Error("Invalid DID format for subject");
@@ -62,7 +62,7 @@ export async function createVerifiableCredential(
       "https://www.w3.org/2018/credentials/examples/v1",
       "https://w3id.org/security/suites/ed25519-2020/v1",
       "https://w3id.org/vc-revocation-list-2020/v1",
-      "https://schema.org",
+      "https://schema.org"
     ],
     id: credentialId,
     type: ["VerifiableCredential", "PersonalInfoCredential"],
@@ -72,16 +72,15 @@ export async function createVerifiableCredential(
       image: "https://demo-issuer.example.com/logo.png",
     },
     issuanceDate: new Date().toISOString(),
-    expirationDate: new Date(
-      Date.now() + 365 * 24 * 60 * 60 * 1000,
-    ).toISOString(),
+    expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     credentialSubject: {
       id: subjectId,
       type: "PersonalInfo",
-      name: personalInfo.name,
-      dateOfBirth: personalInfo.dateOfBirth,
-      address: personalInfo.address,
+      name: info.name,
+      dateOfBirth: info.dateOfBirth,
+      address: info.address,
     },
+    style: info.style,
     credentialStatus: revocationStatus,
     credentialSchema: {
       id: "https://demo-issuer.example.com/schemas/personal-info.json",
@@ -324,8 +323,10 @@ export async function createSelectiveDisclosure(
     expirationDate: credential.expirationDate,
     credentialSubject: {
       id: credential.credentialSubject.id,
+      type: credential.credentialSubject.type,
       ...disclosedClaims,
     },
+    style: credential.style,
   };
 
   // 新しいプルーフを生成
