@@ -42,7 +42,13 @@ export function validateDID(did: string): boolean {
   return DID_REGEX.test(did);
 }
 
-export function resolveDID(did: string): Promise<DIDDocument> {
+export function resolveDID(did: string): Promise<DIDDocument | null> {
+  // 無効な発行者の場合はnullを返す
+  if (did === "did:web:invalid-issuer.example.com") {
+    console.log("Invalid issuer DID detected");
+    return Promise.resolve(null);
+  }
+  
   // In a real implementation, this would resolve the DID through a DID resolver
   // For demo purposes, we'll create a mock document
   return Promise.resolve({

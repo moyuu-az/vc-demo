@@ -132,6 +132,12 @@ export async function createVerifiableCredential(
   );
   credential.proof = proof;
 
+  // 失効オプションが有効な場合、実際にクレデンシャルを失効させる
+  if (errorOptions?.revokedCredential) {
+    await revokeCredential(credentialId);
+    console.log(`Credential ${credentialId} has been revoked`);
+  }
+
   return credential;
 }
 

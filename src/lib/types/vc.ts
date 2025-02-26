@@ -20,8 +20,8 @@ export type Proof = z.infer<typeof ProofSchema>;
 // 以下は既存のコードをそのまま維持
 export const CredentialStatusSchema = z.object({
   id: z.string(),
-  type: z.string(),
-  statusPurpose: z.string(),
+  type: z.literal("StatusList2021Entry"),
+  statusPurpose: z.union([z.literal("revocation"), z.literal("suspension")]),
   // Status List 2023 の新しいフィールド
   statusListIndex: z.string(),
   statusListCredential: z.string(),
@@ -68,6 +68,7 @@ export const VerifiableCredentialSchema = z.object({
     name: z.string().optional(),
     image: z.string().optional(),
   }),
+  issuanceDate: z.string().optional(),
   validFrom: z.string(),
   validUntil: z.string().optional(),
   credentialSubject: z

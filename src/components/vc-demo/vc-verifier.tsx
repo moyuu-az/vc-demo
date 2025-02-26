@@ -49,13 +49,17 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
       setSelectedCredential(disclosureResponse);
 
       // 要求情報の検証
-      const hasAllRequiredClaims = requiredClaims.every((claim) =>
-        claim in disclosureResponse.credentialSubject
+      const missingClaims = requiredClaims.filter(
+        (claim) => !(claim in disclosureResponse.credentialSubject)
       );
 
-      if (!hasAllRequiredClaims) {
+      if (missingClaims.length > 0) {
+        // スキーマ検証の結果を更新
+        result.checks.schemaValid = false;
         result.isValid = false;
-        result.errors.push("要求された情報が不足しています");
+        result.errors.push(
+          `必須フィールドが欠落しています: ${missingClaims.join(', ')}`
+        );
       }
     } catch (error) {
       console.error("検証エラー:", error);

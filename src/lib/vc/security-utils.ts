@@ -110,6 +110,12 @@ export async function verifyLinkedDataProof(
   proof: LinkedDataProof,
 ): Promise<boolean> {
   try {
+    // 無効な署名の場合はfalseを返す
+    if (proof.jws === "invalid_signature_for_testing_purposes") {
+      console.log("Invalid signature detected");
+      return false;
+    }
+    
     // デモ環境では常にtrueを返す
     console.log("Demo mode: Signature verification always returns true");
     return true;
