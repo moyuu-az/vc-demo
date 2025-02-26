@@ -1,6 +1,6 @@
 import {
-  decode as base64urlDecode,
-  encode as base64urlEncode,
+    decode as base64urlDecode,
+    encode as base64urlEncode,
 } from "base64url";
 
 // SD-JWT用の型定義
@@ -71,6 +71,7 @@ export async function createSDJWTCredential(
     issuer: credential.issuer,
     validFrom: credential.validFrom,
     validUntil: credential.validUntil,
+    sub: credential.credentialSubject.id,
     _sd: hashedDisclosures,
     _sd_alg: "sha-256",
   };

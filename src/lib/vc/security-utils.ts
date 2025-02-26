@@ -9,6 +9,7 @@ export interface SecurityProof {
   jws: string;
   challenge?: string;
   domain?: string;
+  cryptosuite: string;
 }
 
 export interface LinkedDataProof extends SecurityProof {
@@ -166,6 +167,7 @@ async function verifySignature(
 
 export async function createDataIntegrityProof(
   document: any,
+  invalidSignature: boolean = false
 ): Promise<SecurityProof> {
   // キーペアの生成
   const keyPair = await generateKeyPair();
@@ -173,18 +175,25 @@ export async function createDataIntegrityProof(
   // ドキュメントの正規化（JSON文字列に変換）
   const normalizedDoc = JSON.stringify(document);
 
-  // 署名の生成
-  const signature = await crypto.subtle.sign(
-    {
-      name: "ECDSA",
-      hash: { name: "SHA-256" },
-    },
-    keyPair.privateKey,
-    new TextEncoder().encode(normalizedDoc),
-  );
+  let jws: string;
 
-  // Base64エンコード
-  const jws = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  if (invalidSignature) {
+    // 無効な署名を生成
+    jws = "invalid_signature_for_testing_purposes";
+  } else {
+    // 有効な署名を生成
+    const signature = await crypto.subtle.sign(
+      {
+        name: "ECDSA",
+        hash: { name: "SHA-256" },
+      },
+      keyPair.privateKey,
+      new TextEncoder().encode(normalizedDoc),
+    );
+
+    // Base64エンコード
+    jws = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  }
 
   return {
     type: "DataIntegrityProof",

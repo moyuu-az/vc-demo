@@ -2,9 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PersonalInfo } from "@/lib/types/vc";
+import { ErrorInjectionOptions, PersonalInfo } from "@/lib/types/vc";
 import { fetchAddressFromPostalCode } from "@/lib/utils/address";
-import { ErrorInjectionOptions } from "@/lib/vc/types";
 import { Loader2 } from "lucide-react";
 import React, { useState } from "react";
 import { ErrorInjectionForm } from "./error-injection-form";
@@ -83,15 +82,22 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
     // エラーオプションに応じてタイプを変更
     let finalType = isCustomType ? customType : credentialType;
 
-    onSubmit({
+    // personalInfoオブジェクトに追加情報を含める
+    const enhancedPersonalInfo = {
       ...personalInfo,
+      credentialType: finalType,
       style: {
         backgroundColor: selectedColor.bg,
-        textColor: selectedColor.text,
+        textColor: selectedColor.text
       },
-      credentialType: finalType,
-      errorOptions: errorOptions  // エラーオプションを明示的に追加
-    }, errorOptions);
+      errorOptions: errorOptions,
+      errorTypes: errorTypes
+    };
+
+    onSubmit(
+      enhancedPersonalInfo,
+      errorOptions
+    );
   };
 
   return (

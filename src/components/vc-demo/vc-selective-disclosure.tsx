@@ -33,9 +33,15 @@ export const SelectiveDisclosure: React.FC<SelectiveDisclosureProps> = ({
         return;
       }
 
+      // 必ず id を含めるようにする
+      const finalSelectedClaims = [...selectedClaims];
+      if (!finalSelectedClaims.includes("id") && credential.credentialSubject.id) {
+        finalSelectedClaims.push("id");
+      }
+
       const disclosureResponse = await createSelectiveDisclosure(
         credential,
-        selectedClaims,
+        finalSelectedClaims,
       );
       onSubmit(disclosureResponse);
     } catch (error) {

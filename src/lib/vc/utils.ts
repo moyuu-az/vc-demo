@@ -11,7 +11,7 @@ import {
 import { generateKeyPair } from "./crypto-utils";
 import { createDIDDocument, resolveDID, validateDID } from "./did-utils";
 import { revocationService } from "./revocation-utils";
-import { base64urlToBuffer, createSDJWTCredential } from "./sd-jwt";
+import { base64urlToBuffer, createSDJWTCredential, SDJWT } from "./sd-jwt";
 import { createDataIntegrityProof, createLinkedDataProof, verifyLinkedDataProof } from "./security-utils";
 
 export async function generateAuthorizationRequest(
@@ -42,7 +42,14 @@ export async function generateAuthorizationRequest(
 
 export async function createVerifiableCredential(
   subjectId: string,
-  info: PersonalInfo,
+  info: PersonalInfo & {
+    credentialType?: string;
+    style?: {
+      backgroundColor: string;
+      textColor: string;
+    };
+    errorTypes?: Record<string, string>;
+  },
   errorOptions?: ErrorInjectionOptions,
   credentialType: string = "PersonalInfoCredential"
 ): Promise<VerifiableCredential> {
@@ -50,6 +57,24 @@ export async function createVerifiableCredential(
   const issuerDid = errorOptions?.invalidIssuer
     ? "did:web:invalid-issuer.example.com"
     : "did:web:demo-issuer.example.com";
+
+  // エラーオプションに基づいてクレデンシャルタイプを変更
+  let finalCredentialType = info.credentialType || credentialType;
+  
+  // エラーオプションが有効な場合、対応するエラータイプを使用
+  if (errorOptions && info.errorTypes) {
+    if (errorOptions.invalidSignature && info.errorTypes.invalidSignature) {
+      finalCredentialType = info.errorTypes.invalidSignature;
+    } else if (errorOptions.expiredCredential && info.errorTypes.expiredCredential) {
+      finalCredentialType = info.errorTypes.expiredCredential;
+    } else if (errorOptions.invalidIssuer && info.errorTypes.invalidIssuer) {
+      finalCredentialType = info.errorTypes.invalidIssuer;
+    } else if (errorOptions.missingFields && info.errorTypes.missingFields) {
+      finalCredentialType = info.errorTypes.missingFields;
+    } else if (errorOptions.revokedCredential && info.errorTypes.revokedCredential) {
+      finalCredentialType = info.errorTypes.revokedCredential;
+    }
+  }
 
   const credential: VerifiableCredential = {
     "@context": [
@@ -59,7 +84,7 @@ export async function createVerifiableCredential(
       "https://w3id.org/status-list/2023/v1",
     ],
     id: credentialId,
-    type: ["VerifiableCredential", credentialType],
+    type: ["VerifiableCredential", finalCredentialType],
     issuer: {
       id: issuerDid,
       name: "Demo Issuer Organization",
@@ -83,13 +108,21 @@ export async function createVerifiableCredential(
         },
   };
 
+  // スタイル情報を追加
+  if (info.style) {
+    credential.style = {
+      backgroundColor: info.style.backgroundColor,
+      textColor: info.style.textColor,
+    };
+  }
+
   if (!errorOptions?.missingFields) {
     credential.credentialStatus = {
       id: `https://demo-issuer.example.com/status/${credentialId}`,
       type: "StatusList2021Entry",
       statusPurpose: "revocation",
-      revocationListIndex: errorOptions?.revokedCredential ? "1" : "0",
-      revocationListCredential: "https://demo-issuer.example.com/status-list/2021",
+      statusListIndex: errorOptions?.revokedCredential ? "1" : "0",
+      statusListCredential: "https://demo-issuer.example.com/status-list/2021",
     };
   }
 
@@ -141,17 +174,17 @@ export async function verifyCredential(
 
     // 2. 有効期限チェック
     const now = new Date();
-    const issuanceDate = new Date(credential.issuanceDate);
-    const expirationDate = credential.expirationDate
-      ? new Date(credential.expirationDate)
+    const validFrom = new Date(credential.validFrom);
+    const validUntil = credential.validUntil
+      ? new Date(credential.validUntil)
       : null;
 
     result.checks.notExpired = true; // デフォルトはtrue
-    if (issuanceDate > now) {
+    if (validFrom > now) {
       result.checks.notExpired = false;
       result.errors.push("クレデンシャルの有効期間がまだ始まっていません");
     }
-    if (expirationDate && expirationDate < now) {
+    if (validUntil && validUntil < now) {
       result.checks.notExpired = false;
       result.errors.push("クレデンシャルの有効期限が切れています");
     }
@@ -309,11 +342,12 @@ async function createSDJWTPresentation(
   const { jwt, disclosures } = sdJwt;
 
   // 選択された開示情報のみを含める
-  const selectedDisclosures = disclosures.filter((disclosure) => {
+  const selectedDisclosures = disclosures.filter((disclosure: string) => {
     const [, claim] = JSON.parse(
       new TextDecoder().decode(base64urlToBuffer(disclosure)),
     );
-    return selectedClaims.includes(claim);
+    // idは常に含める
+    return selectedClaims.includes(claim) || claim === "id";
   });
 
   // JWT と選択された開示情報を ~ で結合
@@ -331,10 +365,10 @@ function convertSDJWTtoVC(presentation: string): VerifiableCredential {
   );
 
   // 開示された情報を解析
-  const disclosedClaims: Record<string, any> = {
-    id: payload.sub || payload.id,
+  const disclosedClaims = {
+    id: payload.sub || payload.id || `did:web:holder-${crypto.randomUUID()}`,
     type: "PersonalInfo",
-  };
+  } as { id: string; type: string } & Record<string, any>;
 
   // 開示情報をクレデンシャルに追加
   for (const disclosure of disclosures) {

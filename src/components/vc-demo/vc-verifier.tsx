@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { verifyCredential, verifySDJWT } from "@/lib/vc/utils";
-import { VerifiableCredential, DisclosureResponse } from "@/lib/types/vc";
-import { CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { VerifierRequest } from "./vc-verifier-request";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { VerifiableCredential } from "@/lib/types/vc";
+import { verifyCredential } from "@/lib/vc/utils";
+import { CheckCircle2, XCircle } from "lucide-react";
+import React, { useState } from "react";
 import { SelectiveDisclosure } from "./vc-selective-disclosure";
+import { VerifierRequest } from "./vc-verifier-request";
 
 interface VerifierProps {
   storedCredentials: VerifiableCredential[];
@@ -43,25 +42,15 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
   const handleVerify = async (disclosureResponse: VerifiableCredential) => {
     setIsVerifying(true);
     try {
-      // SD-JWT形式の検証
-      const sdJwtVerificationResult = await verifySDJWT(disclosureResponse);
-      const result = {
-        isValid: sdJwtVerificationResult.isValid,
-        checks: {
-          schemaValid: true,
-          notExpired: sdJwtVerificationResult.notExpired,
-          proofValid: sdJwtVerificationResult.signatureValid,
-          issuerValid: sdJwtVerificationResult.issuerValid,
-        },
-        errors: sdJwtVerificationResult.errors,
-      };
+      // 通常のVC検証を実行
+      const result = await verifyCredential(disclosureResponse);
 
       setVerificationResult(result);
       setSelectedCredential(disclosureResponse);
 
       // 要求情報の検証
       const hasAllRequiredClaims = requiredClaims.every((claim) =>
-        sdJwtVerificationResult.disclosedClaims.includes(claim),
+        claim in disclosureResponse.credentialSubject
       );
 
       if (!hasAllRequiredClaims) {
@@ -99,7 +88,7 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
           return {
             title: "有効期限",
             description: "クレデンシャルが有効期限内かどうか確認",
-            reference: `発行日: ${selectedCredential?.issuanceDate}\n有効期限: ${selectedCredential?.expirationDate || "無期限"}`,
+            reference: `発行日: ${selectedCredential?.validFrom}\n有効期限: ${selectedCredential?.validUntil || "無期限"}`,
           };
         case "notRevoked":
           return {
