@@ -1,8 +1,16 @@
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VerifiableCredential } from "@/lib/types/vc";
-import { DetailedVerificationResult, verifyCredentialDetailed } from "@/lib/vc/utils";
+import {
+  DetailedVerificationResult,
+  verifyCredentialDetailed,
+} from "@/lib/vc/utils";
 import { CheckCircle2, XCircle } from "lucide-react";
 import React, { useState } from "react";
 import { SelectiveDisclosure } from "./vc-selective-disclosure";
@@ -40,7 +48,7 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
 
       // 要求情報の検証
       const missingClaims = requiredClaims.filter(
-        (claim) => !(claim in disclosureResponse.credentialSubject)
+        (claim) => !(claim in disclosureResponse.credentialSubject),
       );
 
       if (missingClaims.length > 0) {
@@ -48,7 +56,7 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
         result.checks.schemaValid = false;
         result.isValid = false;
         result.errors.push(
-          `必須フィールドが欠落しています: ${missingClaims.join(', ')}`
+          `必須フィールドが欠落しています: ${missingClaims.join(", ")}`,
         );
       }
     } catch (error) {
@@ -196,7 +204,9 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                   {/* エラーメッセージの表示 */}
                   {verificationResult.errors.length > 0 && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <h4 className="font-medium text-red-700 mb-2">検証エラー</h4>
+                      <h4 className="font-medium text-red-700 mb-2">
+                        検証エラー
+                      </h4>
                       <ul className="list-disc list-inside space-y-1">
                         {verificationResult.errors.map((error, index) => (
                           <li key={index} className="text-sm text-red-600">
@@ -244,40 +254,92 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                           <div className="space-y-2 text-sm">
                             <div className="grid grid-cols-2 gap-2">
                               <div className="font-medium">署名タイプ:</div>
-                              <div>{verificationResult.technicalDetails.proof.type}</div>
+                              <div>
+                                {verificationResult.technicalDetails.proof.type}
+                              </div>
 
-                              <div className="font-medium">署名アルゴリズム:</div>
-                              <div>{verificationResult.technicalDetails.proof.cryptosuite}</div>
+                              <div className="font-medium">
+                                署名アルゴリズム:
+                              </div>
+                              <div>
+                                {
+                                  verificationResult.technicalDetails.proof
+                                    .cryptosuite
+                                }
+                              </div>
 
                               <div className="font-medium">署名日時:</div>
-                              <div>{verificationResult.technicalDetails.proof.created}</div>
+                              <div>
+                                {
+                                  verificationResult.technicalDetails.proof
+                                    .created
+                                }
+                              </div>
 
                               <div className="font-medium">検証メソッド:</div>
-                              <div>{verificationResult.technicalDetails.proof.verificationMethod}</div>
+                              <div>
+                                {
+                                  verificationResult.technicalDetails.proof
+                                    .verificationMethod
+                                }
+                              </div>
                             </div>
 
-                            {verificationResult.technicalDetails.proof.verificationDetails && (
+                            {verificationResult.technicalDetails.proof
+                              .verificationDetails && (
                               <div className="mt-3 p-3 bg-gray-50 rounded">
                                 <h5 className="font-medium mb-2">検証詳細</h5>
                                 <div className="grid grid-cols-2 gap-2">
                                   <div className="font-medium">署名検証:</div>
-                                  <div>{getStatusIcon(verificationResult.technicalDetails.proof.verificationDetails.signatureValid)}</div>
+                                  <div>
+                                    {getStatusIcon(
+                                      verificationResult.technicalDetails.proof
+                                        .verificationDetails.signatureValid,
+                                    )}
+                                  </div>
 
-                                  <div className="font-medium">検証メソッド解決:</div>
-                                  <div>{getStatusIcon(verificationResult.technicalDetails.proof.verificationDetails.methodResolved)}</div>
+                                  <div className="font-medium">
+                                    検証メソッド解決:
+                                  </div>
+                                  <div>
+                                    {getStatusIcon(
+                                      verificationResult.technicalDetails.proof
+                                        .verificationDetails.methodResolved,
+                                    )}
+                                  </div>
 
-                                  <div className="font-medium">プルーフパーパス検証:</div>
-                                  <div>{getStatusIcon(verificationResult.technicalDetails.proof.verificationDetails.proofPurposeValid)}</div>
+                                  <div className="font-medium">
+                                    プルーフパーパス検証:
+                                  </div>
+                                  <div>
+                                    {getStatusIcon(
+                                      verificationResult.technicalDetails.proof
+                                        .verificationDetails.proofPurposeValid,
+                                    )}
+                                  </div>
 
-                                  <div className="font-medium">暗号スイート対応:</div>
-                                  <div>{getStatusIcon(verificationResult.technicalDetails.proof.verificationDetails.cryptosuiteSupported)}</div>
+                                  <div className="font-medium">
+                                    暗号スイート対応:
+                                  </div>
+                                  <div>
+                                    {getStatusIcon(
+                                      verificationResult.technicalDetails.proof
+                                        .verificationDetails
+                                        .cryptosuiteSupported,
+                                    )}
+                                  </div>
                                 </div>
 
-                                {verificationResult.technicalDetails.proof.verificationDetails.signatureData && (
+                                {verificationResult.technicalDetails.proof
+                                  .verificationDetails.signatureData && (
                                   <div className="mt-2">
                                     <div className="font-medium">署名値:</div>
                                     <div className="bg-gray-100 p-2 rounded mt-1 break-all text-xs">
-                                      {verificationResult.technicalDetails.proof.verificationDetails.signatureData.signatureValue}
+                                      {
+                                        verificationResult.technicalDetails
+                                          .proof.verificationDetails
+                                          .signatureData.signatureValue
+                                      }
                                     </div>
                                   </div>
                                 )}
@@ -285,7 +347,9 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                             )}
                           </div>
                         ) : (
-                          <div className="text-red-500">署名情報がありません</div>
+                          <div className="text-red-500">
+                            署名情報がありません
+                          </div>
                         )}
                       </AccordionContent>
                     </AccordionItem>
@@ -302,26 +366,39 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                         {verificationResult.technicalDetails?.schema && (
                           <div className="space-y-3 text-sm">
                             <div>
-                              <h5 className="font-medium mb-1">必須フィールド</h5>
+                              <h5 className="font-medium mb-1">
+                                必須フィールド
+                              </h5>
                               <div className="bg-gray-50 p-2 rounded">
-                                {verificationResult.technicalDetails.schema.requiredFields?.join(", ")}
+                                {verificationResult.technicalDetails.schema.requiredFields?.join(
+                                  ", ",
+                                )}
                               </div>
                             </div>
 
                             <div>
-                              <h5 className="font-medium mb-1">オプションフィールド</h5>
+                              <h5 className="font-medium mb-1">
+                                オプションフィールド
+                              </h5>
                               <div className="bg-gray-50 p-2 rounded">
-                                {verificationResult.technicalDetails.schema.optionalFields?.join(", ")}
+                                {verificationResult.technicalDetails.schema.optionalFields?.join(
+                                  ", ",
+                                )}
                               </div>
                             </div>
 
-                            {verificationResult.technicalDetails.schema.validationErrors && (
+                            {verificationResult.technicalDetails.schema
+                              .validationErrors && (
                               <div>
-                                <h5 className="font-medium mb-1 text-red-600">検証エラー</h5>
+                                <h5 className="font-medium mb-1 text-red-600">
+                                  検証エラー
+                                </h5>
                                 <ul className="list-disc list-inside text-red-600 bg-red-50 p-2 rounded">
-                                  {verificationResult.technicalDetails.schema.validationErrors.map((error, idx) => (
-                                    <li key={idx}>{error}</li>
-                                  ))}
+                                  {verificationResult.technicalDetails.schema.validationErrors.map(
+                                    (error, idx) => (
+                                      <li key={idx}>{error}</li>
+                                    ),
+                                  )}
                                 </ul>
                               </div>
                             )}
@@ -343,22 +420,34 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                           <div className="space-y-2 text-sm">
                             <div className="grid grid-cols-2 gap-2">
                               <div className="font-medium">発行者DID:</div>
-                              <div className="break-all">{verificationResult.technicalDetails.issuer.did}</div>
+                              <div className="break-all">
+                                {verificationResult.technicalDetails.issuer.did}
+                              </div>
                             </div>
 
-                            {verificationResult.technicalDetails.issuer.didDocument && (
+                            {verificationResult.technicalDetails.issuer
+                              .didDocument && (
                               <div>
-                                <h5 className="font-medium mb-1">DIDドキュメント</h5>
+                                <h5 className="font-medium mb-1">
+                                  DIDドキュメント
+                                </h5>
                                 <div className="bg-gray-50 p-2 rounded overflow-auto max-h-40">
                                   <pre className="text-xs">
-                                    {JSON.stringify(verificationResult.technicalDetails.issuer.didDocument, null, 2)}
+                                    {JSON.stringify(
+                                      verificationResult.technicalDetails.issuer
+                                        .didDocument,
+                                      null,
+                                      2,
+                                    )}
                                   </pre>
                                 </div>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <div className="text-red-500">発行者情報を取得できませんでした</div>
+                          <div className="text-red-500">
+                            発行者情報を取得できませんでした
+                          </div>
                         )}
                       </AccordionContent>
                     </AccordionItem>
@@ -376,13 +465,26 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                           <div className="space-y-2 text-sm">
                             <div className="grid grid-cols-2 gap-2">
                               <div className="font-medium">有効開始日:</div>
-                              <div>{verificationResult.technicalDetails.timing.validFrom}</div>
+                              <div>
+                                {
+                                  verificationResult.technicalDetails.timing
+                                    .validFrom
+                                }
+                              </div>
 
                               <div className="font-medium">有効期限:</div>
-                              <div>{verificationResult.technicalDetails.timing.validUntil || "無期限"}</div>
+                              <div>
+                                {verificationResult.technicalDetails.timing
+                                  .validUntil || "無期限"}
+                              </div>
 
                               <div className="font-medium">現在時刻:</div>
-                              <div>{verificationResult.technicalDetails.timing.currentTime}</div>
+                              <div>
+                                {
+                                  verificationResult.technicalDetails.timing
+                                    .currentTime
+                                }
+                              </div>
                             </div>
                           </div>
                         )}
@@ -395,17 +497,31 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                         <AccordionTrigger>
                           <div className="flex items-center gap-2">
                             <span>失効検証の詳細</span>
-                            {getStatusIcon(verificationResult.checks.notRevoked)}
+                            {getStatusIcon(
+                              verificationResult.checks.notRevoked,
+                            )}
                           </div>
                         </AccordionTrigger>
                         <AccordionContent>
                           <div className="space-y-2 text-sm">
                             <div className="grid grid-cols-2 gap-2">
                               <div className="font-medium">失効目的:</div>
-                              <div>{verificationResult.technicalDetails.revocation.status}</div>
+                              <div>
+                                {
+                                  verificationResult.technicalDetails.revocation
+                                    .status
+                                }
+                              </div>
 
-                              <div className="font-medium">失効リストクレデンシャル:</div>
-                              <div className="break-all">{verificationResult.technicalDetails.revocation.statusListCredential}</div>
+                              <div className="font-medium">
+                                失効リストクレデンシャル:
+                              </div>
+                              <div className="break-all">
+                                {
+                                  verificationResult.technicalDetails.revocation
+                                    .statusListCredential
+                                }
+                              </div>
                             </div>
                           </div>
                         </AccordionContent>
@@ -423,7 +539,11 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
                     </div>
                     <div className="bg-gray-100 p-3 rounded overflow-auto max-h-96">
                       <pre className="text-xs">
-                        {JSON.stringify(verificationResult.rawCredential, null, 2)}
+                        {JSON.stringify(
+                          verificationResult.rawCredential,
+                          null,
+                          2,
+                        )}
                       </pre>
                     </div>
                   </div>

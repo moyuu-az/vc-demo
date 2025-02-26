@@ -21,9 +21,17 @@ export const ErrorInjectionForm: React.FC<{
     };
 
     // 「発行者が無効」と「必須フィールド欠落」が同時に選択されないようにする
-    if (key === "invalidIssuer" && newOptions.invalidIssuer && newOptions.missingFields) {
+    if (
+      key === "invalidIssuer" &&
+      newOptions.invalidIssuer &&
+      newOptions.missingFields
+    ) {
       newOptions.missingFields = false;
-    } else if (key === "missingFields" && newOptions.missingFields && newOptions.invalidIssuer) {
+    } else if (
+      key === "missingFields" &&
+      newOptions.missingFields &&
+      newOptions.invalidIssuer
+    ) {
       newOptions.invalidIssuer = false;
     }
 

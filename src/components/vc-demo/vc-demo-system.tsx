@@ -109,9 +109,9 @@ const VCDemoSystem = () => {
           address: personalInfo.address,
           credentialType: personalInfo.credentialType,
           style: personalInfo.style,
-          errorTypes: personalInfo.errorTypes
+          errorTypes: personalInfo.errorTypes,
         },
-        personalInfo.errorOptions
+        personalInfo.errorOptions,
       );
 
       await saveCredential(vc);

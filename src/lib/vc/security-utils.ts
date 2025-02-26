@@ -152,42 +152,50 @@ export async function verifyLinkedDataProofDetailed(
             algorithm: proof.cryptosuite || "es256",
             created: proof.created,
             verificationMethod: proof.verificationMethod,
-            signatureValue: proof.jws.substring(0, 20) + "..." // 署名の一部を表示
-          }
-        }
+            signatureValue: proof.jws.substring(0, 20) + "...", // 署名の一部を表示
+          },
+        },
       };
     }
 
     // 検証メソッドの解決をシミュレート
     result.details.methodResolved = true;
-    
+
     // プルーフパーパスの検証
     const validPurposes = ["assertionMethod", "authentication", "keyAgreement"];
-    result.details.proofPurposeValid = validPurposes.includes(proof.proofPurpose);
-    
+    result.details.proofPurposeValid = validPurposes.includes(
+      proof.proofPurpose,
+    );
+
     // 暗号スイートのサポート確認
     const supportedSuites = ["es256", "ecdsa-2019", "JsonWebSignature2020"];
-    result.details.cryptosuiteSupported = supportedSuites.includes(proof.cryptosuite);
-    
+    result.details.cryptosuiteSupported = supportedSuites.includes(
+      proof.cryptosuite,
+    );
+
     // 署名検証（デモ環境では常にtrue）
     result.details.signatureValid = true;
-    
+
     // 署名データの詳細情報
     result.details.signatureData = {
       algorithm: proof.cryptosuite,
       created: proof.created,
       verificationMethod: proof.verificationMethod,
-      signatureValue: proof.jws.length > 40 
-        ? proof.jws.substring(0, 20) + "..." + proof.jws.substring(proof.jws.length - 20) 
-        : proof.jws
+      signatureValue:
+        proof.jws.length > 40
+          ? proof.jws.substring(0, 20) +
+            "..." +
+            proof.jws.substring(proof.jws.length - 20)
+          : proof.jws,
     };
-    
+
     // 総合判定
-    result.isValid = result.details.signatureValid && 
-                    result.details.methodResolved && 
-                    result.details.proofPurposeValid && 
-                    result.details.cryptosuiteSupported;
-    
+    result.isValid =
+      result.details.signatureValid &&
+      result.details.methodResolved &&
+      result.details.proofPurposeValid &&
+      result.details.cryptosuiteSupported;
+
     return result;
   } catch (error) {
     console.error("Proof verification failed:", error);
@@ -252,7 +260,7 @@ async function verifySignature(
 
 export async function createDataIntegrityProof(
   document: any,
-  invalidSignature: boolean = false
+  invalidSignature: boolean = false,
 ): Promise<SecurityProof> {
   // キーペアの生成
   const keyPair = await generateKeyPair();

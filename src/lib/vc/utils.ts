@@ -6,13 +6,18 @@ import {
   ErrorInjectionOptions,
   PersonalInfo,
   VerifiableCredential,
-  VerifiableCredentialSchema
+  VerifiableCredentialSchema,
 } from "../types/vc";
 import { generateKeyPair } from "./crypto-utils";
 import { createDIDDocument, resolveDID, validateDID } from "./did-utils";
 import { revocationService } from "./revocation-utils";
 import { base64urlToBuffer, createSDJWTCredential, SDJWT } from "./sd-jwt";
-import { createDataIntegrityProof, createLinkedDataProof, verifyLinkedDataProof, verifyLinkedDataProofDetailed } from "./security-utils";
+import {
+  createDataIntegrityProof,
+  createLinkedDataProof,
+  verifyLinkedDataProof,
+  verifyLinkedDataProofDetailed,
+} from "./security-utils";
 
 export async function generateAuthorizationRequest(
   credentialType: string[],
@@ -51,7 +56,7 @@ export async function createVerifiableCredential(
     errorTypes?: Record<string, string>;
   },
   errorOptions?: ErrorInjectionOptions,
-  credentialType: string = "PersonalInfoCredential"
+  credentialType: string = "PersonalInfoCredential",
 ): Promise<VerifiableCredential> {
   const credentialId = `urn:uuid:${uuidv4()}`;
   const issuerDid = errorOptions?.invalidIssuer
@@ -60,18 +65,24 @@ export async function createVerifiableCredential(
 
   // エラーオプションに基づいてクレデンシャルタイプを変更
   let finalCredentialType = info.credentialType || credentialType;
-  
+
   // エラーオプションが有効な場合、対応するエラータイプを使用
   if (errorOptions && info.errorTypes) {
     if (errorOptions.invalidSignature && info.errorTypes.invalidSignature) {
       finalCredentialType = info.errorTypes.invalidSignature;
-    } else if (errorOptions.expiredCredential && info.errorTypes.expiredCredential) {
+    } else if (
+      errorOptions.expiredCredential &&
+      info.errorTypes.expiredCredential
+    ) {
       finalCredentialType = info.errorTypes.expiredCredential;
     } else if (errorOptions.invalidIssuer && info.errorTypes.invalidIssuer) {
       finalCredentialType = info.errorTypes.invalidIssuer;
     } else if (errorOptions.missingFields && info.errorTypes.missingFields) {
       finalCredentialType = info.errorTypes.missingFields;
-    } else if (errorOptions.revokedCredential && info.errorTypes.revokedCredential) {
+    } else if (
+      errorOptions.revokedCredential &&
+      info.errorTypes.revokedCredential
+    ) {
       finalCredentialType = info.errorTypes.revokedCredential;
     }
   }
@@ -238,7 +249,7 @@ export async function verifyCredential(
     } catch (error) {
       result.checks.issuerValid = false;
       result.errors.push(
-        `発行者の検証に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`
+        `発行者の検証に失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`,
       );
     }
 
@@ -264,7 +275,7 @@ export async function verifyCredential(
     result.isValid = Object.values(result.checks).every((check) => check);
   } catch (error) {
     result.errors.push(
-      `検証中に予期せぬエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`
+      `検証中に予期せぬエラーが発生しました: ${error instanceof Error ? error.message : "不明なエラー"}`,
     );
     result.isValid = false;
   }
@@ -437,7 +448,7 @@ export async function verifyCredentialDetailed(
 ): Promise<DetailedVerificationResult> {
   // 基本的な検証を実行
   const baseResult = await verifyCredential(credential);
-  
+
   // 詳細な検証結果を作成
   const detailedResult: DetailedVerificationResult = {
     ...baseResult,
@@ -445,19 +456,29 @@ export async function verifyCredentialDetailed(
     technicalDetails: {
       schema: {
         requiredFields: [
-          "@context", "id", "type", "issuer", "validFrom", "credentialSubject"
+          "@context",
+          "id",
+          "type",
+          "issuer",
+          "validFrom",
+          "credentialSubject",
         ],
         optionalFields: [
-          "validUntil", "credentialStatus", "credentialSchema", 
-          "refreshService", "termsOfUse", "evidence", "proof"
-        ]
+          "validUntil",
+          "credentialStatus",
+          "credentialSchema",
+          "refreshService",
+          "termsOfUse",
+          "evidence",
+          "proof",
+        ],
       },
       timing: {
         validFrom: credential.validFrom,
         validUntil: credential.validUntil,
-        currentTime: new Date().toISOString()
-      }
-    }
+        currentTime: new Date().toISOString(),
+      },
+    },
   };
 
   // 発行者情報の詳細
@@ -466,7 +487,7 @@ export async function verifyCredentialDetailed(
     const didDocument = await resolveDID(issuerDID);
     detailedResult.technicalDetails.issuer = {
       did: issuerDID,
-      didDocument: didDocument
+      didDocument: didDocument,
     };
   } catch (error) {
     console.error("Failed to resolve issuer DID:", error);
@@ -476,7 +497,7 @@ export async function verifyCredentialDetailed(
   if (credential.credentialStatus) {
     detailedResult.technicalDetails.revocation = {
       status: credential.credentialStatus.statusPurpose,
-      statusListCredential: credential.credentialStatus.statusListCredential
+      statusListCredential: credential.credentialStatus.statusListCredential,
     };
   }
 
@@ -486,12 +507,12 @@ export async function verifyCredentialDetailed(
       // 詳細な署名検証を実行
       const proofResult = await verifyLinkedDataProofDetailed(
         credential,
-        credential.proof as any
+        credential.proof as any,
       );
-      
+
       detailedResult.technicalDetails.proof = {
         ...credential.proof,
-        verificationDetails: proofResult.details
+        verificationDetails: proofResult.details,
       };
     } catch (error) {
       console.error("Detailed proof verification failed:", error);

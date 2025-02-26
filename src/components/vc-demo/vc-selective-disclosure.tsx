@@ -39,7 +39,10 @@ export const SelectiveDisclosure: React.FC<SelectiveDisclosureProps> = ({
 
       // 必ず id を含めるようにする
       const finalSelectedClaims = [...selectedClaims];
-      if (!finalSelectedClaims.includes("id") && selectedCredential.credentialSubject.id) {
+      if (
+        !finalSelectedClaims.includes("id") &&
+        selectedCredential.credentialSubject.id
+      ) {
         finalSelectedClaims.push("id");
       }
 
@@ -68,13 +71,14 @@ export const SelectiveDisclosure: React.FC<SelectiveDisclosureProps> = ({
             {credentials.map((cred) => (
               <div
                 key={cred.id}
-                className={`p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${selectedCredential?.id === cred.id ? "border-blue-500 bg-blue-50" : ""
-                  }`}
+                className={`p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${
+                  selectedCredential?.id === cred.id
+                    ? "border-blue-500 bg-blue-50"
+                    : ""
+                }`}
                 onClick={() => setSelectedCredential(cred)}
               >
-                <p className="font-medium">
-                  {cred.type[cred.type.length - 1]}
-                </p>
+                <p className="font-medium">{cred.type[cred.type.length - 1]}</p>
                 <p className="text-sm text-gray-600">
                   発行者: {cred.issuer.name}
                 </p>

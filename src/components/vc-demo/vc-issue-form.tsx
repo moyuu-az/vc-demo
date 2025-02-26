@@ -9,7 +9,10 @@ import React, { useState } from "react";
 import { ErrorInjectionForm } from "./error-injection-form";
 
 interface VCIssueFormProps {
-  onSubmit: (personalInfo: PersonalInfo, errorOptions: ErrorInjectionOptions) => void;
+  onSubmit: (
+    personalInfo: PersonalInfo,
+    errorOptions: ErrorInjectionOptions,
+  ) => void;
   onCancel: () => void;
 }
 
@@ -30,7 +33,9 @@ const predefinedTypes = [
 
 const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
   const [selectedColor, setSelectedColor] = useState(colorOptions[0]);
-  const [credentialType, setCredentialType] = useState("PersonalInfoCredential");
+  const [credentialType, setCredentialType] = useState(
+    "PersonalInfoCredential",
+  );
   const [isCustomType, setIsCustomType] = useState(false);
   const [customType, setCustomType] = useState("");
   const [personalInfo, setPersonalInfo] = React.useState<PersonalInfo>({
@@ -88,16 +93,13 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
       credentialType: finalType,
       style: {
         backgroundColor: selectedColor.bg,
-        textColor: selectedColor.text
+        textColor: selectedColor.text,
       },
       errorOptions: errorOptions,
-      errorTypes: errorTypes
+      errorTypes: errorTypes,
     };
 
-    onSubmit(
-      enhancedPersonalInfo,
-      errorOptions
-    );
+    onSubmit(enhancedPersonalInfo, errorOptions);
   };
 
   return (
@@ -136,22 +138,25 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
       </div>
 
       {/* エラー注入オプションのタイプ設定 */}
-      {Object.entries(errorOptions).map(([key, value]) => (
-        value && (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={`errorType_${key}`}>{`${key}のタイプ名`}</Label>
-            <Input
-              id={`errorType_${key}`}
-              value={errorTypes[key as keyof typeof errorTypes]}
-              onChange={(e) => setErrorTypes(prev => ({
-                ...prev,
-                [key]: e.target.value
-              }))}
-              placeholder="エラータイプ名を入力"
-            />
-          </div>
-        )
-      ))}
+      {Object.entries(errorOptions).map(
+        ([key, value]) =>
+          value && (
+            <div key={key} className="space-y-2">
+              <Label htmlFor={`errorType_${key}`}>{`${key}のタイプ名`}</Label>
+              <Input
+                id={`errorType_${key}`}
+                value={errorTypes[key as keyof typeof errorTypes]}
+                onChange={(e) =>
+                  setErrorTypes((prev) => ({
+                    ...prev,
+                    [key]: e.target.value,
+                  }))
+                }
+                placeholder="エラータイプ名を入力"
+              />
+            </div>
+          ),
+      )}
 
       <div>
         <Label htmlFor="name">氏名</Label>

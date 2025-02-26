@@ -48,7 +48,7 @@ export function resolveDID(did: string): Promise<DIDDocument | null> {
     console.log("Invalid issuer DID detected");
     return Promise.resolve(null);
   }
-  
+
   // In a real implementation, this would resolve the DID through a DID resolver
   // For demo purposes, we'll create a mock document
   return Promise.resolve({
