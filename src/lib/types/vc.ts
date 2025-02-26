@@ -8,9 +8,10 @@ export const ProofSchema = z.object({
   proofPurpose: z.string(),
   // cryptosuite は Data Integrity Proof v2 では必須です
   cryptosuite: z.string(),
-  // proofValue は Data Integrity Proof v2 では jws の代わりに使用します
-  proofValue: z.string().optional(),
-  jws: z.string(), // これは削除すべき
+  // proofValue は Data Integrity Proof v2 では必須です
+  proofValue: z.string(),
+  // jws は Data Integrity Proof v2 では非推奨になりました
+  jws: z.string().optional(),
   challenge: z.string().optional(),
   domain: z.string().optional(),
 });

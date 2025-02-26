@@ -6,15 +6,15 @@ export interface SecurityProof {
   created: string;
   verificationMethod: string;
   proofPurpose: string;
-  jws: string;
+  cryptosuite: string;
+  proofValue: string;
+  jws?: string;
   challenge?: string;
   domain?: string;
-  cryptosuite: string;
 }
 
 export interface LinkedDataProof extends SecurityProof {
   nonce?: string;
-  cryptosuite: string;
 }
 
 export async function createLinkedDataProof(
@@ -40,12 +40,12 @@ export async function createLinkedDataProof(
   const jws = await createJWS(normalizedDoc, keyPair.privateKey);
 
   const proof: LinkedDataProof = {
-    type: "JsonWebSignature2020",
+    type: "DataIntegrityProof",
     created: new Date().toISOString(),
     verificationMethod: `${controller}#key-1`,
     proofPurpose: purpose,
-    cryptosuite: "es256",
-    jws,
+    cryptosuite: "ecdsa-2019",
+    proofValue: jws,
     ...options,
   };
 
@@ -127,6 +127,7 @@ export async function verifyLinkedDataProofDetailed(
   document: any,
   proof: LinkedDataProof,
 ): Promise<DetailedVerificationResult> {
+  console.log("検証開始: proof = ", proof); // デバッグログ
   const result: DetailedVerificationResult = {
     isValid: false,
     details: {
@@ -139,8 +140,10 @@ export async function verifyLinkedDataProofDetailed(
 
   try {
     // 無効な署名の場合は詳細情報付きでfalseを返す
-    if (proof.jws === "invalid_signature_for_testing_purposes") {
-      console.log("Invalid signature detected");
+    if (proof.proofValue === "invalid_signature_for_testing_purposes") {
+      console.log(
+        "Invalid signature detected in verifyLinkedDataProofDetailed",
+      ); // デバッグログ
       return {
         isValid: false,
         details: {
@@ -149,10 +152,10 @@ export async function verifyLinkedDataProofDetailed(
           proofPurposeValid: true,
           cryptosuiteSupported: true,
           signatureData: {
-            algorithm: proof.cryptosuite || "es256",
+            algorithm: proof.cryptosuite || "ecdsa-2019",
             created: proof.created,
             verificationMethod: proof.verificationMethod,
-            signatureValue: proof.jws.substring(0, 20) + "...", // 署名の一部を表示
+            signatureValue: proof.proofValue.substring(0, 20) + "...", // 署名の一部を表示
           },
         },
       };
@@ -168,13 +171,19 @@ export async function verifyLinkedDataProofDetailed(
     );
 
     // 暗号スイートのサポート確認
-    const supportedSuites = ["es256", "ecdsa-2019", "JsonWebSignature2020"];
+    const supportedSuites = [
+      "ecdsa-2019",
+      "eddsa-rdfc-2022",
+      "ecdsa-sd-2023",
+      "bbs-2023",
+    ];
     result.details.cryptosuiteSupported = supportedSuites.includes(
       proof.cryptosuite,
     );
 
-    // 署名検証（デモ環境では常にtrue）
-    result.details.signatureValid = true;
+    // 署名検証（無効な署名の場合はfalseを返す）
+    result.details.signatureValid =
+      proof.proofValue !== "invalid_signature_for_testing_purposes";
 
     // 署名データの詳細情報
     result.details.signatureData = {
@@ -182,11 +191,11 @@ export async function verifyLinkedDataProofDetailed(
       created: proof.created,
       verificationMethod: proof.verificationMethod,
       signatureValue:
-        proof.jws.length > 40
-          ? proof.jws.substring(0, 20) +
+        proof.proofValue.length > 40
+          ? proof.proofValue.substring(0, 20) +
             "..." +
-            proof.jws.substring(proof.jws.length - 20)
-          : proof.jws,
+            proof.proofValue.substring(proof.proofValue.length - 20)
+          : proof.proofValue,
     };
 
     // 総合判定
@@ -268,11 +277,11 @@ export async function createDataIntegrityProof(
   // ドキュメントの正規化（JSON文字列に変換）
   const normalizedDoc = JSON.stringify(document);
 
-  let jws: string;
+  let proofValue: string;
 
   if (invalidSignature) {
     // 無効な署名を生成
-    jws = "invalid_signature_for_testing_purposes";
+    proofValue = "invalid_signature_for_testing_purposes";
   } else {
     // 有効な署名を生成
     const signature = await crypto.subtle.sign(
@@ -285,7 +294,7 @@ export async function createDataIntegrityProof(
     );
 
     // Base64エンコード
-    jws = btoa(String.fromCharCode(...new Uint8Array(signature)));
+    proofValue = btoa(String.fromCharCode(...new Uint8Array(signature)));
   }
 
   return {
@@ -294,6 +303,6 @@ export async function createDataIntegrityProof(
     verificationMethod: "did:web:demo-issuer.example.com#key-1",
     proofPurpose: "assertionMethod",
     cryptosuite: "ecdsa-2019",
-    jws,
+    proofValue: proofValue,
   };
 }

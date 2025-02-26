@@ -113,7 +113,6 @@ export const SelectiveDisclosure: React.FC<SelectiveDisclosureProps> = ({
                             : [...prev, claim],
                         );
                       }}
-                      disabled={requiredClaims.includes(claim)}
                     />
                     <Label htmlFor={claim}>
                       {claim === "name"

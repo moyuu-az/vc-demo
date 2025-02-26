@@ -40,8 +40,12 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
   const handleVerify = async (disclosureResponse: VerifiableCredential) => {
     setIsVerifying(true);
     try {
+      console.log("検証開始: disclosureResponse = ", disclosureResponse); // デバッグログ
+
       // 詳細な検証を実行
       const result = await verifyCredentialDetailed(disclosureResponse as any);
+
+      console.log("検証結果: ", result); // デバッグログ
 
       setVerificationResult(result);
       setSelectedCredential(disclosureResponse);
