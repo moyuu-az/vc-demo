@@ -36,7 +36,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 import VCIssueForm from "./vc-issue-form";
 import VCProcessVisualization from "./vc-process-visualization";
-import VerifierComponent from "./vc-verifier";
+import { VerifierComponent } from "./vc-verifier";
 import VCWalletView from "./vc-wallet-view";
 
 const VCDemoSystem = () => {

@@ -12,7 +12,7 @@ import { generateKeyPair } from "./crypto-utils";
 import { createDIDDocument, resolveDID, validateDID } from "./did-utils";
 import { revocationService } from "./revocation-utils";
 import { base64urlToBuffer, createSDJWTCredential, SDJWT } from "./sd-jwt";
-import { createDataIntegrityProof, createLinkedDataProof, verifyLinkedDataProof } from "./security-utils";
+import { createDataIntegrityProof, createLinkedDataProof, verifyLinkedDataProof, verifyLinkedDataProofDetailed } from "./security-utils";
 
 export async function generateAuthorizationRequest(
   credentialType: string[],
@@ -151,6 +151,32 @@ export interface VerificationResult {
     issuerValid: boolean;
   };
   errors: string[];
+}
+
+// 詳細な検証結果の型定義を追加
+export interface DetailedVerificationResult extends VerificationResult {
+  rawCredential?: any; // 生のクレデンシャルデータ
+  technicalDetails: {
+    proof?: any; // 署名の詳細情報
+    schema?: {
+      validationErrors?: string[];
+      requiredFields?: string[];
+      optionalFields?: string[];
+    };
+    issuer?: {
+      did?: string;
+      didDocument?: any;
+    };
+    timing?: {
+      validFrom?: string;
+      validUntil?: string;
+      currentTime?: string;
+    };
+    revocation?: {
+      status?: string;
+      statusListCredential?: string;
+    };
+  };
 }
 
 export async function verifyCredential(
@@ -404,3 +430,73 @@ function convertSDJWTtoVC(presentation: string): VerifiableCredential {
 }
 
 export { verifySDJWT } from "./sd-jwt";
+
+// 詳細な検証を行う新しい関数
+export async function verifyCredentialDetailed(
+  credential: VerifiableCredential,
+): Promise<DetailedVerificationResult> {
+  // 基本的な検証を実行
+  const baseResult = await verifyCredential(credential);
+  
+  // 詳細な検証結果を作成
+  const detailedResult: DetailedVerificationResult = {
+    ...baseResult,
+    rawCredential: { ...credential }, // 生のクレデンシャルデータをコピー
+    technicalDetails: {
+      schema: {
+        requiredFields: [
+          "@context", "id", "type", "issuer", "validFrom", "credentialSubject"
+        ],
+        optionalFields: [
+          "validUntil", "credentialStatus", "credentialSchema", 
+          "refreshService", "termsOfUse", "evidence", "proof"
+        ]
+      },
+      timing: {
+        validFrom: credential.validFrom,
+        validUntil: credential.validUntil,
+        currentTime: new Date().toISOString()
+      }
+    }
+  };
+
+  // 発行者情報の詳細
+  try {
+    const issuerDID = credential.issuer.id;
+    const didDocument = await resolveDID(issuerDID);
+    detailedResult.technicalDetails.issuer = {
+      did: issuerDID,
+      didDocument: didDocument
+    };
+  } catch (error) {
+    console.error("Failed to resolve issuer DID:", error);
+  }
+
+  // 失効情報の詳細
+  if (credential.credentialStatus) {
+    detailedResult.technicalDetails.revocation = {
+      status: credential.credentialStatus.statusPurpose,
+      statusListCredential: credential.credentialStatus.statusListCredential
+    };
+  }
+
+  // 署名検証の詳細
+  if (credential.proof) {
+    try {
+      // 詳細な署名検証を実行
+      const proofResult = await verifyLinkedDataProofDetailed(
+        credential,
+        credential.proof as any
+      );
+      
+      detailedResult.technicalDetails.proof = {
+        ...credential.proof,
+        verificationDetails: proofResult.details
+      };
+    } catch (error) {
+      console.error("Detailed proof verification failed:", error);
+    }
+  }
+
+  return detailedResult;
+}
