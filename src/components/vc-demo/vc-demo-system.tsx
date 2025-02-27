@@ -79,7 +79,7 @@ const VCDemoSystem = () => {
       setCurrentStep(1);
       const request = await generateAuthorizationRequest(
         ["DemoCredential"],
-        "This is a demo credential issuance request for testing purposes.",
+        "デモ用のVC発行リクエスト",
       );
       setCurrentRequest(request);
       setVcRequested(true);
@@ -158,9 +158,6 @@ const VCDemoSystem = () => {
           <Card>
             <CardHeader>
               <CardTitle>Verifiable Credential発行デモ</CardTitle>
-              <CardDescription>
-                VCの発行プロセスを体験できます。各ステップでどのような処理が行われているかを確認できます。
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <VCProcessVisualization currentStep={currentStep} />
@@ -239,9 +236,6 @@ const VCDemoSystem = () => {
           <Card>
             <CardHeader>
               <CardTitle>Verifiable Credential検証</CardTitle>
-              <CardDescription>
-                発行されたVCの有効性を検証できます
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
