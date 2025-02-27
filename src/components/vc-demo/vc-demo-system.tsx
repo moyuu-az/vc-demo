@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
+  CardTitle
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -210,9 +209,6 @@ const VCDemoSystem = () => {
           <Card>
             <CardHeader>
               <CardTitle>保存されたVC一覧</CardTitle>
-              <CardDescription>
-                発行されたVerifiable Credentialを確認できます
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid w-full gap-4">
