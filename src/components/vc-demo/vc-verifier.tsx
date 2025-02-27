@@ -9,7 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VerifiableCredential } from "@/lib/types/vc";
 import {
   DetailedVerificationResult,
+  detectPresentationFormat,
   verifyCredentialDetailed,
+  verifyCredentialOrPresentation,
 } from "@/lib/vc/utils";
 import { CheckCircle2, XCircle } from "lucide-react";
 import React, { useState } from "react";
@@ -37,22 +39,56 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
     setShowCredentialSelection(true);
   };
 
-  const handleVerify = async (disclosureResponse: VerifiableCredential) => {
+  const handleVerify = async (disclosureResponse: VerifiableCredential | any) => {
     setIsVerifying(true);
     try {
       console.log("検証開始: disclosureResponse = ", disclosureResponse); // デバッグログ
 
-      // 詳細な検証を実行
-      const result = await verifyCredentialDetailed(disclosureResponse as any);
+      // プレゼンテーション形式を検出
+      const format = detectPresentationFormat(disclosureResponse);
+      console.log("検出された形式:", format);
+
+      let result;
+      // VP形式の場合
+      if (format === "vp" && Array.isArray(disclosureResponse.verifiableCredential)) {
+        // 最初のクレデンシャルを使用
+        const vcInPresentation = disclosureResponse.verifiableCredential[0];
+
+        // 詳細な検証を実行
+        result = await verifyCredentialDetailed(vcInPresentation);
+        // VP自体の検証も行う
+        const vpResult = await verifyCredentialOrPresentation(disclosureResponse);
+
+        // VPの検証結果を統合
+        result.isValid = result.isValid && vpResult.isValid;
+        if (!vpResult.isValid) {
+          result.errors.push(...vpResult.errors);
+        }
+
+        // VP全体を表示対象に設定
+        setSelectedCredential(disclosureResponse);
+        // 生データとしてもVP全体を保存
+        result.rawCredential = disclosureResponse;
+        // VP形式であることを記録
+        result.presentationFormat = "vp";
+      } else {
+        // 詳細な検証を実行 (SD-JWTまたは通常のVC)
+        result = await verifyCredentialDetailed(disclosureResponse as any);
+        setSelectedCredential(disclosureResponse);
+        // 形式を記録
+        result.presentationFormat = format;
+      }
 
       console.log("検証結果: ", result); // デバッグログ
-
       setVerificationResult(result);
-      setSelectedCredential(disclosureResponse);
 
       // 要求情報の検証
+      const subjectToCheck = format === "vp"
+        ? disclosureResponse.verifiableCredential[0].credentialSubject
+        : disclosureResponse.credentialSubject;
+
       const missingClaims = requiredClaims.filter(
-        (claim) => !(claim in disclosureResponse.credentialSubject),
+        (claim) => !(claim in subjectToCheck),
       );
 
       if (missingClaims.length > 0) {
@@ -81,6 +117,12 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
   const renderVerificationDetails = () => {
     if (!verificationResult) return null;
 
+    // VP内の最初のVCを取得（VP形式の場合）
+    const isVPFormat = verificationResult.presentationFormat === "vp";
+    const vcObject = isVPFormat && Array.isArray((selectedCredential as any)?.verifiableCredential)
+      ? (selectedCredential as any).verifiableCredential[0]
+      : selectedCredential;
+
     const getCheckDetails = (key: string) => {
       switch (key) {
         case "schemaValid":
@@ -94,29 +136,31 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
           return {
             title: "有効期限",
             description: "クレデンシャルが有効期限内かどうか確認",
-            reference: `発行日: ${selectedCredential?.validFrom}\n有効期限: ${selectedCredential?.validUntil || "無期限"}`,
+            reference: `発行日: ${vcObject?.validFrom}\n有効期限: ${vcObject?.validUntil || "無期限"}`,
           };
         case "notRevoked":
           return {
             title: "失効状態",
             description: "クレデンシャルが失効していないか確認",
-            reference: selectedCredential?.credentialStatus
-              ? `失効確認用ID: ${selectedCredential.credentialStatus.id}`
+            reference: vcObject?.credentialStatus
+              ? `失効確認用ID: ${vcObject.credentialStatus.id}`
               : "失効情報なし",
           };
         case "proofValid":
           return {
             title: "署名検証",
             description: "発行者の電子署名が有効か確認",
-            reference: selectedCredential?.proof
-              ? `署名タイプ: ${selectedCredential.proof.type}\n署名日時: ${selectedCredential.proof.created}`
+            reference: vcObject?.proof
+              ? `署名タイプ: ${vcObject.proof.type}\n署名日時: ${vcObject.proof.created}`
               : "署名情報なし",
           };
         case "issuerValid":
           return {
             title: "発行者検証",
             description: "発行者のDIDが有効か確認",
-            reference: `発行者: ${selectedCredential?.issuer.name}\nDID: ${selectedCredential?.issuer.id}`,
+            reference: vcObject?.issuer
+              ? `発行者: ${vcObject.issuer.name || 'N/A'}\nDID: ${vcObject.issuer.id || 'N/A'}`
+              : "発行者情報なし",
           };
         default:
           return { title: "", description: "", reference: "" };
@@ -124,9 +168,13 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
     };
 
     // 要求情報の開示状態を確認
+    const subjectToCheck = isVPFormat && Array.isArray((selectedCredential as any)?.verifiableCredential)
+      ? (selectedCredential as any).verifiableCredential[0].credentialSubject
+      : selectedCredential?.credentialSubject;
+
     const disclosureStatus = requiredClaims.map((claim) => ({
       claim,
-      isDisclosed: claim in selectedCredential?.credentialSubject,
+      isDisclosed: subjectToCheck ? claim in subjectToCheck : false,
     }));
     const allClaimsDisclosed = disclosureStatus.every(
       (status) => status.isDisclosed,
@@ -137,6 +185,15 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
         <Card>
           <CardHeader>
             <CardTitle>検証結果</CardTitle>
+            {(verificationResult as any).presentationFormat && (
+              <p className="text-sm text-muted-foreground">
+                形式: {(verificationResult as any).presentationFormat === "vp"
+                  ? "Verifiable Presentation (W3C標準)"
+                  : (verificationResult as any).presentationFormat === "sd-jwt"
+                    ? "Selective Disclosure JWT"
+                    : "通常のVerifiable Credential"}
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="basic">
@@ -291,64 +348,64 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
 
                             {verificationResult.technicalDetails.proof
                               .verificationDetails && (
-                              <div className="mt-3 p-3 bg-gray-50 rounded">
-                                <h5 className="font-medium mb-2">検証詳細</h5>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="font-medium">署名検証:</div>
-                                  <div>
-                                    {getStatusIcon(
-                                      verificationResult.technicalDetails.proof
-                                        .verificationDetails.signatureValid,
-                                    )}
-                                  </div>
+                                <div className="mt-3 p-3 bg-gray-50 rounded">
+                                  <h5 className="font-medium mb-2">検証詳細</h5>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="font-medium">署名検証:</div>
+                                    <div>
+                                      {getStatusIcon(
+                                        verificationResult.technicalDetails.proof
+                                          .verificationDetails.signatureValid,
+                                      )}
+                                    </div>
 
-                                  <div className="font-medium">
-                                    検証メソッド解決:
-                                  </div>
-                                  <div>
-                                    {getStatusIcon(
-                                      verificationResult.technicalDetails.proof
-                                        .verificationDetails.methodResolved,
-                                    )}
-                                  </div>
+                                    <div className="font-medium">
+                                      検証メソッド解決:
+                                    </div>
+                                    <div>
+                                      {getStatusIcon(
+                                        verificationResult.technicalDetails.proof
+                                          .verificationDetails.methodResolved,
+                                      )}
+                                    </div>
 
-                                  <div className="font-medium">
-                                    プルーフパーパス検証:
-                                  </div>
-                                  <div>
-                                    {getStatusIcon(
-                                      verificationResult.technicalDetails.proof
-                                        .verificationDetails.proofPurposeValid,
-                                    )}
-                                  </div>
+                                    <div className="font-medium">
+                                      プルーフパーパス検証:
+                                    </div>
+                                    <div>
+                                      {getStatusIcon(
+                                        verificationResult.technicalDetails.proof
+                                          .verificationDetails.proofPurposeValid,
+                                      )}
+                                    </div>
 
-                                  <div className="font-medium">
-                                    暗号スイート対応:
-                                  </div>
-                                  <div>
-                                    {getStatusIcon(
-                                      verificationResult.technicalDetails.proof
-                                        .verificationDetails
-                                        .cryptosuiteSupported,
-                                    )}
-                                  </div>
-                                </div>
-
-                                {verificationResult.technicalDetails.proof
-                                  .verificationDetails.signatureData && (
-                                  <div className="mt-2">
-                                    <div className="font-medium">署名値:</div>
-                                    <div className="bg-gray-100 p-2 rounded mt-1 break-all text-xs">
-                                      {
-                                        verificationResult.technicalDetails
-                                          .proof.verificationDetails
-                                          .signatureData.signatureValue
-                                      }
+                                    <div className="font-medium">
+                                      暗号スイート対応:
+                                    </div>
+                                    <div>
+                                      {getStatusIcon(
+                                        verificationResult.technicalDetails.proof
+                                          .verificationDetails
+                                          .cryptosuiteSupported,
+                                      )}
                                     </div>
                                   </div>
-                                )}
-                              </div>
-                            )}
+
+                                  {verificationResult.technicalDetails.proof
+                                    .verificationDetails.signatureData && (
+                                      <div className="mt-2">
+                                        <div className="font-medium">署名値:</div>
+                                        <div className="bg-gray-100 p-2 rounded mt-1 break-all text-xs">
+                                          {
+                                            verificationResult.technicalDetails
+                                              .proof.verificationDetails
+                                              .signatureData.signatureValue
+                                          }
+                                        </div>
+                                      </div>
+                                    )}
+                                </div>
+                              )}
                           </div>
                         ) : (
                           <div className="text-red-500">
@@ -393,19 +450,19 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
 
                             {verificationResult.technicalDetails.schema
                               .validationErrors && (
-                              <div>
-                                <h5 className="font-medium mb-1 text-red-600">
-                                  検証エラー
-                                </h5>
-                                <ul className="list-disc list-inside text-red-600 bg-red-50 p-2 rounded">
-                                  {verificationResult.technicalDetails.schema.validationErrors.map(
-                                    (error, idx) => (
-                                      <li key={idx}>{error}</li>
-                                    ),
-                                  )}
-                                </ul>
-                              </div>
-                            )}
+                                <div>
+                                  <h5 className="font-medium mb-1 text-red-600">
+                                    検証エラー
+                                  </h5>
+                                  <ul className="list-disc list-inside text-red-600 bg-red-50 p-2 rounded">
+                                    {verificationResult.technicalDetails.schema.validationErrors.map(
+                                      (error, idx) => (
+                                        <li key={idx}>{error}</li>
+                                      ),
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
                           </div>
                         )}
                       </AccordionContent>
@@ -431,22 +488,22 @@ const VerifierComponent: React.FC<VerifierProps> = ({ storedCredentials }) => {
 
                             {verificationResult.technicalDetails.issuer
                               .didDocument && (
-                              <div>
-                                <h5 className="font-medium mb-1">
-                                  DIDドキュメント
-                                </h5>
-                                <div className="bg-gray-50 p-2 rounded overflow-auto max-h-40">
-                                  <pre className="text-xs">
-                                    {JSON.stringify(
-                                      verificationResult.technicalDetails.issuer
-                                        .didDocument,
-                                      null,
-                                      2,
-                                    )}
-                                  </pre>
+                                <div>
+                                  <h5 className="font-medium mb-1">
+                                    DIDドキュメント
+                                  </h5>
+                                  <div className="bg-gray-50 p-2 rounded overflow-auto max-h-40">
+                                    <pre className="text-xs">
+                                      {JSON.stringify(
+                                        verificationResult.technicalDetails.issuer
+                                          .didDocument,
+                                        null,
+                                        2,
+                                      )}
+                                    </pre>
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
                           </div>
                         ) : (
                           <div className="text-red-500">

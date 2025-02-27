@@ -128,6 +128,7 @@ export interface PersonalInfo {
   name: string;
   dateOfBirth: string;
   address: string;
+  presentationFormat?: "sd-jwt" | "vp";
 }
 
 // 選択的開示のための型定義
@@ -148,4 +149,58 @@ export interface ErrorInjectionOptions {
   invalidIssuer: boolean;
   missingFields: boolean;
   revokedCredential: boolean;
+}
+
+// Verifiable Presentation型の定義
+export interface VerifiablePresentation {
+  "@context": string[];
+  id: string;
+  type: string[];
+  holder: string;
+  verifiableCredential: VerifiableCredential[];
+  proof?: any;
+}
+
+export interface VerificationResult {
+  isValid: boolean;
+  checks: {
+    schemaValid: boolean;
+    notExpired: boolean;
+    notRevoked: boolean;
+    proofValid: boolean;
+    issuerValid: boolean;
+  };
+  errors: string[];
+}
+
+export interface DetailedVerificationResult extends VerificationResult {
+  rawCredential: VerifiableCredential;
+  technicalDetails: {
+    schema: {
+      requiredFields: string[];
+      optionalFields: string[];
+    };
+    timing: {
+      validFrom: string;
+      validUntil?: string;
+      currentTime: string;
+    };
+    issuer?: {
+      did: string;
+      didDocument: any;
+    };
+    revocation?: {
+      status: string;
+      statusListCredential: string;
+    };
+    proof?: {
+      type: string;
+      created: string;
+      verificationMethod: string;
+      proofPurpose: string;
+      proofValue: string;
+      verificationDetails?: any;
+    };
+  };
+  presentationFormat?: "sd-jwt" | "vp" | "vc";
 }

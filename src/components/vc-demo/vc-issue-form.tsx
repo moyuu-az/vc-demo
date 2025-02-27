@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ErrorInjectionOptions, PersonalInfo } from "@/lib/types/vc";
 import { fetchAddressFromPostalCode } from "@/lib/utils/address";
 import { Loader2 } from "lucide-react";
@@ -62,6 +63,8 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
     revokedCredential: "RevokedCredential",
   });
 
+  const [presentationFormat, setPresentationFormat] = useState<"sd-jwt" | "vp">("sd-jwt");
+
   const handlePostalCodeChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -97,6 +100,7 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
       },
       errorOptions: errorOptions,
       errorTypes: errorTypes,
+      presentationFormat: presentationFormat,
     };
 
     onSubmit(enhancedPersonalInfo, errorOptions);
@@ -220,6 +224,23 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
             </button>
           ))}
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label>検証用プレゼンテーション形式</Label>
+        <RadioGroup
+          value={presentationFormat}
+          onValueChange={(value: string) => setPresentationFormat(value as "sd-jwt" | "vp")}
+          className="flex flex-col space-y-2"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="sd-jwt" id="sd-jwt" />
+            <Label htmlFor="sd-jwt">SD-JWT形式（選択的開示JWT）</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="vp" id="vp" />
+            <Label htmlFor="vp">W3C標準 Verifiable Presentation形式</Label>
+          </div>
+        </RadioGroup>
       </div>
       <div className="border-t pt-4">
         <ErrorInjectionForm onErrorOptionsChange={setErrorOptions} />

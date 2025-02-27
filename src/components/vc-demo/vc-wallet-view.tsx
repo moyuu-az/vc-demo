@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VerifiableCredential } from "@/lib/types/vc";
-import { Calendar, FileCheck, Globe, Share2, Trash2 } from "lucide-react";
+import { Calendar, FileCheck, Globe, Share2, Shield, Trash2 } from "lucide-react";
 import React from "react";
 import { SelectiveDisclosure } from "./vc-selective-disclosure";
 
@@ -54,6 +54,12 @@ const VCCard = ({
   React.useEffect(() => {
     console.log("Current credential:", credential);
   }, [credential]);
+
+  // プレゼンテーション形式を取得（存在すれば）
+  const presentationFormat = credential.credentialSubject?.presentationFormat || "sd-jwt";
+  const formatLabel = presentationFormat === "vp"
+    ? "Verifiable Presentation"
+    : "SD-JWT";
 
   const renderCardActions = () => (
     <div className="flex items-center gap-2">
@@ -119,6 +125,10 @@ const VCCard = ({
             <div className="flex items-center gap-2 text-sm">
               <Globe className="w-4 h-4" />
               <span>Holder: {credential.credentialSubject.id}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Shield className="w-4 h-4" />
+              <span>形式: {formatLabel}</span>
             </div>
           </div>
         </CardContent>

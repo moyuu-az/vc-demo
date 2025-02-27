@@ -7,6 +7,7 @@ import {
   PersonalInfo,
   VerifiableCredential,
   VerifiableCredentialSchema,
+  VerifiablePresentation,
 } from "../types/vc";
 import { generateKeyPair } from "./crypto-utils";
 import { createDIDDocument, resolveDID, validateDID } from "./did-utils";
@@ -54,6 +55,7 @@ export async function createVerifiableCredential(
       textColor: string;
     };
     errorTypes?: Record<string, string>;
+    presentationFormat?: "sd-jwt" | "vp";
   },
   errorOptions?: ErrorInjectionOptions,
   credentialType: string = "PersonalInfoCredential",
@@ -116,6 +118,7 @@ export async function createVerifiableCredential(
           name: info.name,
           dateOfBirth: info.dateOfBirth,
           address: info.address,
+          presentationFormat: info.presentationFormat || "sd-jwt",
         },
   };
 
@@ -167,6 +170,7 @@ export interface VerificationResult {
 // 詳細な検証結果の型定義を追加
 export interface DetailedVerificationResult extends VerificationResult {
   rawCredential?: any; // 生のクレデンシャルデータ
+  presentationFormat: "sd-jwt" | "vp" | "vc";
   technicalDetails: {
     proof?: any; // 署名の詳細情報
     schema?: {
@@ -543,60 +547,77 @@ export { verifySDJWT } from "./sd-jwt";
 
 // 詳細な検証を行う新しい関数
 export async function verifyCredentialDetailed(
-  credential: VerifiableCredential,
+  credential: VerifiableCredential | VerifiablePresentation,
 ): Promise<DetailedVerificationResult> {
+  // 形式を判定
+  const format = detectPresentationFormat(credential);
+  
   // 基本的な検証を実行
-  const baseResult = await verifyCredential(credential);
+  let baseResult: VerificationResult;
+  
+  if (format === "vp") {
+    // VP形式の場合はpresentationを検証
+    baseResult = await verifyPresentation(credential as VerifiablePresentation);
+  } else {
+    // VC形式の場合はcredentialを検証
+    baseResult = await verifyCredential(credential as VerifiableCredential);
+  }
 
   // 詳細な検証結果を作成
   const detailedResult: DetailedVerificationResult = {
     ...baseResult,
-    rawCredential: { ...credential }, // 生のクレデンシャルデータをコピー
+    rawCredential: { ...credential } as any, // 生のクレデンシャルデータをコピー
+    presentationFormat: format,
     technicalDetails: {
       schema: {
-        requiredFields: [
-          "@context",
-          "id",
-          "type",
-          "issuer",
-          "validFrom",
-          "credentialSubject",
-        ],
-        optionalFields: [
-          "validUntil",
-          "credentialStatus",
-          "credentialSchema",
-          "refreshService",
-          "termsOfUse",
-          "evidence",
-          "proof",
-        ],
+        requiredFields: format === "vp" 
+          ? ["@context", "id", "type", "holder", "verifiableCredential"] 
+          : ["@context", "id", "type", "issuer", "validFrom", "credentialSubject"],
+        optionalFields: format === "vp"
+          ? ["proof"] 
+          : [
+              "validUntil",
+              "credentialStatus",
+              "credentialSchema",
+              "refreshService",
+              "termsOfUse",
+              "evidence",
+              "proof",
+            ],
       },
       timing: {
-        validFrom: credential.validFrom,
-        validUntil: credential.validUntil,
+        validFrom: format === "vp" 
+          ? (credential as VerifiablePresentation).verifiableCredential?.[0]?.validFrom 
+          : (credential as VerifiableCredential).validFrom,
+        validUntil: format === "vp" 
+          ? (credential as VerifiablePresentation).verifiableCredential?.[0]?.validUntil 
+          : (credential as VerifiableCredential).validUntil,
         currentTime: new Date().toISOString(),
       },
     },
   };
 
-  // 発行者情報の詳細
-  try {
-    const issuerDID = credential.issuer.id;
-    const didDocument = await resolveDID(issuerDID);
+  // 発行者情報を追加（VP形式の場合は最初のVCの発行者）
+  const issuer = format === "vp" 
+    ? (credential as VerifiablePresentation).verifiableCredential?.[0]?.issuer 
+    : (credential as VerifiableCredential).issuer;
+    
+  if (issuer && issuer.id) {
     detailedResult.technicalDetails.issuer = {
-      did: issuerDID,
-      didDocument: didDocument,
+      did: issuer.id,
+      didDocument: await resolveDID(issuer.id).catch(() => null),
     };
-  } catch (error) {
-    console.error("Failed to resolve issuer DID:", error);
   }
 
-  // 失効情報の詳細
-  if (credential.credentialStatus) {
+  // クレデンシャルステータス情報を追加
+  const credStatus = format === "vp" 
+    ? (credential as VerifiablePresentation).verifiableCredential?.[0]?.credentialStatus 
+    : (credential as VerifiableCredential).credentialStatus;
+    
+  if (credStatus) {
     detailedResult.technicalDetails.revocation = {
-      status: credential.credentialStatus.statusPurpose,
-      statusListCredential: credential.credentialStatus.statusListCredential,
+      status: credStatus.statusPurpose,
+      statusListCredential: credStatus.statusListCredential,
     };
   }
 
@@ -619,4 +640,177 @@ export async function verifyCredentialDetailed(
   }
 
   return detailedResult;
+}
+
+// VP（Verifiable Presentation）作成のための新しい関数
+export async function createVerifiablePresentation(
+  credential: VerifiableCredential,
+  selectedClaims: string[] = []
+): Promise<any> {
+  // Holderの識別子を取得
+  const holderId = credential.credentialSubject.id;
+  
+  // 選択的開示に対応したCredentialの準備（必要な属性のみ残す）
+  let disclosedCredential: VerifiableCredential = JSON.parse(JSON.stringify(credential));
+  
+  // 選択的開示が指定されている場合
+  if (selectedClaims.length > 0 && disclosedCredential.credentialSubject) {
+    // 基本属性を保持する新しいオブジェクトを作成
+    const filteredSubject: any = {
+      id: disclosedCredential.credentialSubject.id,
+      type: disclosedCredential.credentialSubject.type,
+    };
+    
+    // 選択された属性を追加
+    for (const claim of selectedClaims) {
+      if (claim in disclosedCredential.credentialSubject) {
+        filteredSubject[claim] = disclosedCredential.credentialSubject[claim];
+      }
+    }
+    
+    // 新しい主体で更新
+    disclosedCredential.credentialSubject = filteredSubject;
+  }
+  
+  // VPの作成
+  const presentation = {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2"
+    ],
+    "type": ["VerifiablePresentation"],
+    "id": `urn:uuid:${uuidv4()}`,
+    "holder": holderId,
+    "verifiableCredential": [disclosedCredential]
+  };
+  
+  // 署名の作成 (W3C VP用のデータ完全性証明)
+  const proof = await createDataIntegrityProof(presentation, false);
+  
+  // プレゼンテーションにHolderの情報を署名者として付与
+  proof.verificationMethod = `${holderId}#key-1`;
+  
+  // 署名を含むVPを返す
+  return {
+    ...presentation,
+    proof
+  };
+}
+
+// プレゼンテーション形式を判定する関数
+export function detectPresentationFormat(data: any): "sd-jwt" | "vp" | "vc" {
+  if (data?.type?.includes("VerifiablePresentation")) {
+    return "vp";
+  } else if (data?.proof?.proofValue && data.proof.proofValue.includes("~")) {
+    return "sd-jwt";
+  } else {
+    return "vc"; // 通常のVCの場合
+  }
+}
+
+// Verifiable Presentationを検証する関数
+export async function verifyPresentation(presentation: any): Promise<VerificationResult> {
+  const result: VerificationResult = {
+    isValid: false,
+    checks: {
+      schemaValid: false,
+      notExpired: false,
+      notRevoked: false,
+      proofValid: false,
+      issuerValid: false,
+    },
+    errors: [],
+  };
+
+  try {
+    // 1. スキーマ検証
+    result.checks.schemaValid = 
+      presentation["@context"] && 
+      presentation.type && 
+      presentation.type.includes("VerifiablePresentation") && 
+      presentation.holder && 
+      Array.isArray(presentation.verifiableCredential);
+    
+    if (!result.checks.schemaValid) {
+      result.errors.push("Presentationのスキーマが無効です");
+    }
+
+    // 2. 署名検証
+    if (presentation.proof) {
+      result.checks.proofValid = await verifyLinkedDataProof(presentation, presentation.proof);
+      if (!result.checks.proofValid) {
+        result.errors.push("Presentationの署名が無効です");
+      }
+    } else {
+      result.checks.proofValid = false;
+      result.errors.push("Presentationに署名がありません");
+    }
+
+    // 3. 含まれるクレデンシャルの検証
+    if (Array.isArray(presentation.verifiableCredential) && presentation.verifiableCredential.length > 0) {
+      // 各クレデンシャルを検証
+      const credentialResults = await Promise.all(
+        presentation.verifiableCredential.map(verifyCredential)
+      );
+      
+      // すべてのクレデンシャルが有効かチェック
+      const allCredentialsValid = credentialResults.every(r => r.isValid);
+      
+      if (!allCredentialsValid) {
+        result.errors.push("一部のクレデンシャルが無効です");
+        
+        // 詳細エラーも追加
+        credentialResults.forEach((r, i) => {
+          if (!r.isValid) {
+            result.errors.push(`クレデンシャル ${i+1}: ${r.errors.join(", ")}`);
+          }
+        });
+      }
+      
+      // クレデンシャルの結果も考慮して最終判定
+      result.checks.notExpired = credentialResults.every(r => r.checks.notExpired);
+      result.checks.notRevoked = credentialResults.every(r => r.checks.notRevoked);
+      result.checks.issuerValid = credentialResults.every(r => r.checks.issuerValid);
+    } else {
+      result.errors.push("Presentationにクレデンシャルが含まれていません");
+    }
+
+    // 総合判定
+    result.isValid = Object.values(result.checks).every((check) => check);
+  } catch (error) {
+    result.errors.push(`検証中に予期せぬエラーが発生しました: ${error instanceof Error ? error.message : "不明なエラー"}`);
+    result.isValid = false;
+  }
+
+  return result;
+}
+
+// 拡張された検証関数 - SD-JWTとVP両方に対応
+export async function verifyCredentialOrPresentation(data: any): Promise<VerificationResult> {
+  const format = detectPresentationFormat(data);
+  
+  console.log(`検証形式: ${format}`);
+  
+  switch (format) {
+    case "vp":
+      return verifyPresentation(data);
+    case "sd-jwt":
+      // SD-JWT形式の検証
+      return verifyCredential(data);
+    case "vc":
+      // 通常のVC形式の検証
+      return verifyCredential(data);
+    default:
+      return {
+        isValid: false,
+        checks: {
+          schemaValid: false,
+          notExpired: false,
+          notRevoked: false,
+          proofValid: false,
+          issuerValid: false,
+        },
+        errors: ["不明なフォーマットです"]
+      };
+  }
 }

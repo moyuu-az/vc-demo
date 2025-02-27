@@ -110,6 +110,7 @@ const VCDemoSystem = () => {
           credentialType: personalInfo.credentialType,
           style: personalInfo.style,
           errorTypes: personalInfo.errorTypes,
+          presentationFormat: personalInfo.presentationFormat,
         },
         personalInfo.errorOptions,
       );
