@@ -63,7 +63,9 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
     revokedCredential: "RevokedCredential",
   });
 
-  const [presentationFormat, setPresentationFormat] = useState<"sd-jwt" | "vp">("sd-jwt");
+  const [presentationFormat, setPresentationFormat] = useState<"sd-jwt" | "vp">(
+    "sd-jwt",
+  );
 
   const handlePostalCodeChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -229,7 +231,9 @@ const VCIssueForm: React.FC<VCIssueFormProps> = ({ onSubmit, onCancel }) => {
         <Label>検証用プレゼンテーション形式</Label>
         <RadioGroup
           value={presentationFormat}
-          onValueChange={(value: string) => setPresentationFormat(value as "sd-jwt" | "vp")}
+          onValueChange={(value: string) =>
+            setPresentationFormat(value as "sd-jwt" | "vp")
+          }
           className="flex flex-col space-y-2"
         >
           <div className="flex items-center space-x-2">

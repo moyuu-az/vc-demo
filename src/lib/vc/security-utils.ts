@@ -122,7 +122,143 @@ export interface DetailedVerificationResult {
   };
 }
 
-// 詳細な検証結果を返す新しい関数
+// security-utils.ts 内の createVerifiablePresentation 関数の修正
+export async function createVerifiablePresentation(
+  credential: VerifiableCredential,
+  selectedClaims: string[] = [],
+): Promise<any> {
+  // Holder's identifier
+  const holderId = credential.credentialSubject.id;
+
+  // Prepare credential for selective disclosure
+  let disclosedCredential: VerifiableCredential = JSON.parse(
+    JSON.stringify(credential),
+  );
+
+  // 明示的に選択的開示フラグを削除（初期状態でクリーンな状態にする）
+  if ("_selectivelyDisclosed" in disclosedCredential) {
+    delete disclosedCredential._selectivelyDisclosed;
+    console.log("初期状態で選択的開示フラグを削除しました");
+  }
+
+  // Only process for selective disclosure if claims are specified
+  if (selectedClaims.length > 0 && disclosedCredential.credentialSubject) {
+    // Required attributes (always included)
+    const requiredClaims = ["id", "type"];
+
+    // Technical fields that should be ignored in disclosure checks
+    const technicalFields = ["presentationFormat"];
+
+    // Get all available claims that are not technical fields or required fields
+    const allAvailableClaims = Object.keys(
+      disclosedCredential.credentialSubject,
+    ).filter(
+      (claim) =>
+        !technicalFields.includes(claim) && !requiredClaims.includes(claim),
+    );
+
+    // Combine selected and required claims
+    const allClaimsToKeep = [
+      ...new Set([...requiredClaims, ...selectedClaims]),
+    ];
+
+    console.log("利用可能な属性:", allAvailableClaims);
+    console.log("選択された属性:", selectedClaims);
+    console.log("保持する属性:", allClaimsToKeep);
+
+    // Check if all available main claims are selected
+    // Using every instead of some for clarity
+    const allMainClaimsSelected = allAvailableClaims.every((claim) =>
+      allClaimsToKeep.includes(claim),
+    );
+
+    const isPartialDisclosure = !allMainClaimsSelected;
+    console.log("部分開示かどうか:", isPartialDisclosure);
+
+    if (isPartialDisclosure) {
+      // 一部の属性のみ選択されている場合（選択的開示）
+      console.log(
+        "一部の属性のみが選択されています - 選択的開示フラグを設定します",
+      );
+
+      // Create new object with basic attributes
+      const filteredSubject: any = {};
+
+      // Add only required attributes and selected claims
+      for (const claim of allClaimsToKeep) {
+        if (claim in disclosedCredential.credentialSubject) {
+          filteredSubject[claim] = disclosedCredential.credentialSubject[claim];
+        }
+      }
+
+      // Add technical fields back
+      for (const field of technicalFields) {
+        if (field in disclosedCredential.credentialSubject) {
+          filteredSubject[field] = disclosedCredential.credentialSubject[field];
+        }
+      }
+
+      // Update with new subject
+      disclosedCredential.credentialSubject = filteredSubject;
+
+      // Add selective disclosure flag
+      disclosedCredential._selectivelyDisclosed = true;
+    } else {
+      // 全ての属性が選択されている場合
+      console.log(
+        "すべての属性が選択されています - 選択的開示フラグは不要です",
+      );
+
+      // 念のため、選択的開示フラグを明示的に削除
+      if ("_selectivelyDisclosed" in disclosedCredential) {
+        delete disclosedCredential._selectivelyDisclosed;
+        console.log("選択的開示フラグを削除しました");
+      }
+    }
+  }
+
+  // VP最終チェック
+  console.log("最終的なクレデンシャル:", JSON.stringify(disclosedCredential));
+  console.log(
+    "選択的開示フラグ存在:",
+    "_selectivelyDisclosed" in disclosedCredential,
+  );
+
+  // Create VP
+  const presentation = {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.w3.org/ns/credentials/examples/v2",
+    ],
+    type: ["VerifiablePresentation"],
+    id: `urn:uuid:${uuidv4()}`,
+    holder: holderId,
+    verifiableCredential: [disclosedCredential],
+  };
+
+  // Create data integrity proof for W3C VP
+  const proof = await createDataIntegrityProof(presentation, false);
+
+  // Add holder info as signer
+  proof.verificationMethod = `${holderId}#key-1`;
+
+  const finalPresentation = {
+    ...presentation,
+    proof,
+  };
+
+  // 最終チェック - VPに選択的開示フラグが残っていないか確認
+  console.log(
+    "VP内のVC選択的開示フラグ:",
+    finalPresentation.verifiableCredential[0]._selectivelyDisclosed
+      ? "あり"
+      : "なし",
+  );
+
+  // Return VP with signature
+  return finalPresentation;
+}
+
 export async function verifyLinkedDataProofDetailed(
   document: any,
   proof: LinkedDataProof,
@@ -161,6 +297,14 @@ export async function verifyLinkedDataProofDetailed(
       };
     }
 
+    // VPとVC判定
+    const isVP =
+      document.type && document.type.includes("VerifiablePresentation");
+    const containsVC =
+      isVP &&
+      Array.isArray(document.verifiableCredential) &&
+      document.verifiableCredential.length > 0;
+
     // 検証メソッドの解決をシミュレート
     result.details.methodResolved = true;
 
@@ -181,9 +325,22 @@ export async function verifyLinkedDataProofDetailed(
       proof.cryptosuite,
     );
 
-    // 署名検証（無効な署名の場合はfalseを返す）
-    result.details.signatureValid =
-      proof.proofValue !== "invalid_signature_for_testing_purposes";
+    // 選択的開示フラグの確認
+    const isSelectivelyDisclosed =
+      document._selectivelyDisclosed === true ||
+      (isVP &&
+        containsVC &&
+        document.verifiableCredential[0]._selectivelyDisclosed === true);
+
+    // 署名検証
+    if (isSelectivelyDisclosed) {
+      // 選択的開示されたVCの場合、署名は無効
+      result.details.signatureValid = false;
+      console.log("選択的開示されたVCの署名は無効とします");
+    } else {
+      // 通常のVCまたはVP、または全ての情報を開示したVPの場合
+      result.details.signatureValid = true;
+    }
 
     // 署名データの詳細情報
     result.details.signatureData = {

@@ -17,7 +17,14 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VerifiableCredential } from "@/lib/types/vc";
-import { Calendar, FileCheck, Globe, Share2, Shield, Trash2 } from "lucide-react";
+import {
+  Calendar,
+  FileCheck,
+  Globe,
+  Share2,
+  Shield,
+  Trash2,
+} from "lucide-react";
 import React from "react";
 import { SelectiveDisclosure } from "./vc-selective-disclosure";
 
@@ -56,10 +63,10 @@ const VCCard = ({
   }, [credential]);
 
   // プレゼンテーション形式を取得（存在すれば）
-  const presentationFormat = credential.credentialSubject?.presentationFormat || "sd-jwt";
-  const formatLabel = presentationFormat === "vp"
-    ? "Verifiable Presentation"
-    : "SD-JWT";
+  const presentationFormat =
+    credential.credentialSubject?.presentationFormat || "sd-jwt";
+  const formatLabel =
+    presentationFormat === "vp" ? "Verifiable Presentation" : "SD-JWT";
 
   const renderCardActions = () => (
     <div className="flex items-center gap-2">
